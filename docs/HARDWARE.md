@@ -9,7 +9,7 @@
 | Waveshare 4" E Ink Spectra 6 (E6), 600×400, w/ HAT+ driver board | The panel. You'll use the ribbon + driver board, not the Pi HAT headers. | [B0DHTNHRRY](https://www.amazon.com/dp/B0DHTNHRRY) |
 | ESP32-S3 SuperMini ×10 | 4 MB flash. **Prototype on these** — bring up the panel, calibrate shake thresholds, measure sleep current. Build `-e polaroid`. | [B0GS1X97DZ](https://www.amazon.com/dp/B0GS1X97DZ) |
 | ELEGOO double-sided protoboard, 32 pcs | Cut one down to carry the MCU + LIS3DH. | [B072Z7Y19F](https://www.amazon.com/dp/B072Z7Y19F) |
-| LOVIMAG neodymium discs, 32 × 3 mm, adhesive | Fridge mount. Three across the back holds ~90 g fine. | [B072KDBJWC](https://www.amazon.com/dp/B072KDBJWC) |
+| LOVIMAG neodymium discs, 32 × 3 mm, adhesive | Fridge mount. **One**, dead centre, recessed flush into the back. | [B072KDBJWC](https://www.amazon.com/dp/B072KDBJWC) |
 | BOENFU 6" flush cutters | For trimming headers off. | [B07C5PM8L4](https://www.amazon.com/dp/B07C5PM8L4) |
 
 ### Order
@@ -18,7 +18,7 @@
 
 | Part | Why this one | Link |
 | --- | --- | --- |
-| **Lithium Ion Battery 3.7 V 2000 mAh** (#2011) | 60 × 36 × **7 mm**, JST-PH, protection built in. See the fit analysis below — this is the size that keeps everything in one plane. | [adafruit.com/product/2011](https://www.adafruit.com/product/2011) |
+| **Lithium Ion Battery 3.7 V 2000 mAh** (#2011) | 60 × 36 × **7 mm**, JST-PH, protection built in. The 7 mm is the point — it is the single biggest term in the finished thickness. | [adafruit.com/product/2011](https://www.adafruit.com/product/2011) |
 | **LIS3DH triple-axis accelerometer breakout** (#2809) | The library, the click detector, and `INT1` are all first-class. 25 × 19 mm. | [adafruit.com/product/2809](https://www.adafruit.com/product/2809) |
 
 **And direct from Seeed, 2-day:**
@@ -27,9 +27,9 @@
 | --- | --- | --- |
 | **XIAO ESP32S3** | The board this is built around. 8 MB flash (53 photos), onboard LiPo charging, 21 × 17.5 mm, and a deep-sleep floor Seeed actually specifies. Build `-e polaroid-xiao`. | [seeedstudio.com](https://www.seeedstudio.com/XIAO-ESP32S3-p-5627.html) |
 
-Not the 2500 mAh (#328), even though it's barely more expensive. It's 50 × 60 mm, and that 60 mm
-dimension spans essentially the entire panel width — there'd be nowhere left in-plane for the MCU
-and the accelerometer, and the whole point of the exercise is that nothing stacks.
+Not the 2500 mAh (#328), even though it's barely more expensive. It's 50 × 60 mm and 7.3 mm thick —
+500 mAh more (about two extra weeks on a five-month budget) in exchange for 40% more area in a case
+that is already sized by the panel, and it leaves no room beside it for the MCU and accelerometer.
 
 You'll also want 30 AWG silicone wire and a JST-PH pigtail. You do **not** need a TP4056: the XIAO
 charges the cell over its own USB-C.
@@ -58,31 +58,48 @@ about 20 hours. Irrelevant for a device charged twice a year, surprising if you 
 
 ## Physical fit
 
-The point of the exercise: **nothing stacks.** Battery, MCU, and accelerometer all sit side by side
-behind the panel, so the finished object is only as thick as the panel plus 7 mm.
+Vendor numbers, since my first pass guessed and guessed wrong:
 
-The 4" panel's active area is 84.5 × 56.4 mm (4" diagonal at 3:2). Call the outline ~90 × 61 mm —
-**measure your actual panel before cutting protoboard**, Waveshare's bezel varies between batches.
+| | |
+| --- | --- |
+| Driver board (HAT+) | **101.0 × 68.0 mm** — this sets the footprint |
+| Raw panel glass | 99.0 × 66.0 × **0.85 mm** |
+| Active area | 84.6 × 56.40 mm |
+
+The finished case is **73.6 × 122.6 × 21.5 mm** — see `enclosure/`.
+
+**The stack is: glass, board, then everything else.** The driver board covers essentially the whole
+footprint, so the battery, MCU and accelerometer sit *behind* it rather than beside it. That is
+still "nothing stacks" in the sense that mattered — battery, MCU and LIS3DH are all in one layer,
+none of them on top of each other — but the earlier diagram showing them alongside the panel was
+based on a bad guess at the panel size and is gone.
 
 ```
-          ~61 mm
-  ┌─────────────────────┐
-  │ ┌─────────────────┐ │
-  │ │                 │ │   battery 60 × 36 × 7 mm
-  │ │   2000 mAh      │ │   Adafruit #2011
-  │ │   #2011         │ │
-  │ └─────────────────┘ │            ~90 mm
-  │ ┌──────┐  ┌───────┐ │
-  │ │ XIAO │  │LIS3DH │ │   XIAO   21 × 17.5
-  │ │  S3  │  │       │ │   LIS3DH 25 × 19
-  │ └──────┘  └───────┘ │
-  │   [mag]     [mag]   │
-  └─────────────────────┘
+  front ─────────────────────────────────────────── back
+   bezel 2.2 │ glass 0.85 │ board 6.0 │ battery 7 + swell │ floor 3.6
+                                        MCU 4, LIS3DH 3
 ```
 
-Battery is 2160 mm² of ~5490 mm² — **39%**, comfortably under the half you asked for. It leaves a
-30 × 61 mm strip at one end, and the XIAO and LIS3DH sit side by side in it with 15 mm to spare
-(21 + 25 = 46 mm against 61 mm available).
+Behind the board, in one layer on the tray floor:
+
+```
+        ~73.6 mm
+  ┌──────────────────┐
+  │ ┌──────┐         │
+  │ │ batt │         │   battery 60 × 36 × 7, on its side
+  │ │ 2000 │ ┌─────┐ │   LIS3DH  25 × 19
+  │ │ mAh  │ │LIS3D│ │        ~122.6 mm
+  │ └──────┘ └─────┘ │
+  │      ( magnet )  │   32mm disc, dead centre, recessed flush
+  │     ┌──────┐     │
+  │     │ XIAO │     │   USB-C out the bottom wall
+  │     └──────┘     │
+  └──────────────────┘
+```
+
+Battery footprint is 2160 mm² against the case's 9023 mm² — **24%**, well under the half you asked
+for. Thickness is set by the sum of glass + board + battery, not by any one of them, which is why
+`board_t` is the number worth measuring before you print anything.
 
 Orient the LIS3DH so its **X axis lies in the plane of the fridge door** — that's the axis a shake
 swings along and the axis the door swings along, and it's what the thresholds in `Config.h` are

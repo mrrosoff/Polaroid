@@ -173,10 +173,26 @@ constexpr float VBAT_EMPTY_V = 3.30f;
 // doing, so it costs nothing extra.
 constexpr uint8_t LOW_BATTERY_PERCENT = 15;
 
-// Below this we stop refreshing entirely and just sleep. E-ink holds its last
-// image with no power, so the couple is left looking at a photo rather than at
-// a half-drawn frame — which is what you get if the rail sags mid-refresh.
+// Below this the device stops showing photos and draws the "CHARGE ME" card
+// once, then stops refreshing entirely.
+//
+// The threshold has to leave enough charge to actually finish that last
+// refresh — 5% of 2000 mAh is 100 mAh against the ~0.4 mAh a refresh costs,
+// so there is enormous margin. Getting this wrong in the other direction is
+// what you must avoid: a rail that sags twenty seconds into a refresh leaves
+// a half-drawn frame on the panel forever.
 constexpr uint8_t CRITICAL_BATTERY_PERCENT = 5;
+
+// Hysteresis for coming back after a charge. Deliberately far above the
+// critical threshold: a reading that hovers on the line would otherwise
+// redraw the card and resume in a loop, and each of those cycles is a full
+// 30 s refresh out of a battery that has nothing left to give.
+constexpr uint8_t BATTERY_RECOVERY_PERCENT = 25;
+
+// Once the card is up there is nothing to do but wait for a charger, so wake
+// rarely. A wake that only reads the ADC costs microamp-seconds, but there is
+// no reason to spend even that hourly.
+constexpr uint32_t EMPTY_CHECK_INTERVAL_SECONDS = 6 * 60 * 60;
 
 // ---------------------------------------------------------------- network
 

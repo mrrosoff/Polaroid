@@ -15,6 +15,7 @@
 #include "Overlay.h"
 #include "Panel.h"
 #include "State.h"
+#include "StatusCard.h"
 #include "Storage.h"
 
 using namespace config;
@@ -178,18 +179,35 @@ void setup() {
     MotionEvent event =
         reason == WakeReason::Motion ? motion.classifyWakeEvent() : MotionEvent::None;
 
+    // Read before anything draws. The rail sags under a 45 mA refresh, so a
+    // reading taken afterwards reports a battery several percent emptier than
+    // it is and would trip the critical threshold early.
     battery = readBattery();
     showLowBatteryIcon = battery.low;
     state.lowBattery = battery.low ? 1 : 0;
 
-    // POWER: below the critical threshold we stop refreshing entirely. E-ink
-    // holds its last image with no power at all, so the couple is left looking
-    // at a photo rather than at whatever half-drawn frame you get when the rail
-    // sags 20 seconds into a refresh.
+    // Recovered from a charge. Clearing the flag first means the normal path
+    // below repaints a photo over the card without any special casing.
+    if (state.emptyCardDrawn && battery.percent >= BATTERY_RECOVERY_PERCENT) {
+        state.emptyCardDrawn = 0;
+    }
+
+    // POWER: below the critical threshold, stop showing photos and say why.
+    //
+    // E-ink holds its last image with no power at all, so the final refresh is
+    // free forever — which makes it worth spending while there is still charge
+    // to complete one. The alternative is a frozen photo that silently stops
+    // changing, which reads as "the gift broke" rather than "plug it in".
     if (battery.critical) {
+        if (!state.emptyCardDrawn) {
+            Panel panel;
+            if (panel.begin() && panel.displayGenerated(card::emptyBatteryCardRow)) {
+                state.emptyCardDrawn = 1;
+            }
+        }
         motion.armForSleep();
         motion.powerDown();
-        sleepUntilNextEvent(REFRESH_INTERVAL_SECONDS * 4);
+        sleepUntilNextEvent(EMPTY_CHECK_INTERVAL_SECONDS);
     }
 
     Mode mode = decideMode(reason, event);

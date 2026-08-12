@@ -226,6 +226,21 @@ bool Panel::displayFile(fs::FS& filesystem, std::string_view path, RowOverlay ov
     return refresh();
 }
 
+bool Panel::displayGenerated(RowGenerator generate) {
+    if (!initialized_ || generate == nullptr) {
+        return false;
+    }
+
+    static PanelRow row;
+
+    sendCommand(0x10);
+    for (std::uint16_t y = 0; y < PANEL_HEIGHT; y++) {
+        generate(y, row);
+        sendDataBulk(row);
+    }
+    return refresh();
+}
+
 bool Panel::displaySolid(Ink ink) {
     if (!initialized_) {
         return false;

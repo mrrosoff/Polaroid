@@ -30,6 +30,10 @@ struct RtcState {
     uint32_t lastMotionMillisSinceBoot;
     uint8_t lowBattery;
     uint8_t provisioned;
+    // Set once the "CHARGE ME" card is on the panel. Without it the device
+    // would redraw the card on every wake, spending the last of the battery
+    // repainting a picture that is already there.
+    uint8_t emptyCardDrawn;
     uint32_t checksum;
 };
 
