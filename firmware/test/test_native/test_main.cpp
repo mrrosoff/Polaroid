@@ -227,6 +227,46 @@ void test_overlay_stays_inside_the_panel() {
     TEST_ASSERT_TRUE(icon::Y + icon::HEIGHT <= PANEL_HEIGHT);
 }
 
+// ------------------------------------------------------------ pinout
+
+// The XIAO breaks out exactly eleven GPIO and this design needs exactly
+// eleven, so a duplicate is not a warning anywhere — it is two peripherals
+// silently fighting over a line on a board with no headers left to probe.
+// Runs against whichever branch of Config.h is compiled in.
+void test_no_pin_is_used_twice() {
+    const std::array pins{PIN_EPD_SCK,  PIN_EPD_MOSI,   PIN_EPD_CS,     PIN_EPD_DC,
+                          PIN_EPD_RST,  PIN_EPD_BUSY,   PIN_EPD_PWR,    PIN_I2C_SCL,
+                          PIN_I2C_SDA,  PIN_ACCEL_INT1, PIN_VBAT_SENSE};
+
+    for (std::size_t i = 0; i < pins.size(); i++) {
+        for (std::size_t j = i + 1; j < pins.size(); j++) {
+            TEST_ASSERT_NOT_EQUAL(pins[i], pins[j]);
+        }
+    }
+}
+
+// GPIO0-21 is the RTC domain on the S3. An INT1 outside it cannot wake the
+// chip from deep sleep at all, and the failure looks like "shake doesn't work"
+// rather than like a build error.
+void test_wake_pin_is_in_the_rtc_domain() {
+    TEST_ASSERT_TRUE(PIN_ACCEL_INT1 >= 0 && PIN_ACCEL_INT1 <= 21);
+}
+
+// ADC2 stops answering while WiFi is up, which would make the battery read
+// garbage during exactly the sync where we want to report it.
+void test_battery_sense_is_on_adc1() {
+    TEST_ASSERT_TRUE(PIN_VBAT_SENSE >= 1 && PIN_VBAT_SENSE <= 10);
+}
+
+void test_unused_pins_are_iterable_even_when_empty() {
+    int count = 0;
+    for (int pin : UNUSED_PINS) {
+        TEST_ASSERT_TRUE(pin >= 0);
+        count++;
+    }
+    TEST_ASSERT_EQUAL(static_cast<int>(UNUSED_PINS.size()), count);
+}
+
 // ------------------------------------------------------------ geometry
 
 void test_framebuffer_size_matches_the_panel() {

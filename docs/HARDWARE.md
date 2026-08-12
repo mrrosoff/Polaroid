@@ -2,115 +2,185 @@
 
 ## Bill of materials
 
-### Already ordered
+### Have
 
 | Part | Notes | Link |
 | --- | --- | --- |
-| Waveshare 4" E Ink Spectra 6 (E6), 600×400, w/ HAT+ driver board | The panel. You'll use the raw ribbon + driver board, not the Pi HAT headers. | [B0DHTNHRRY](https://www.amazon.com/dp/B0DHTNHRRY) |
-| ESP32-S3 SuperMini (10-pack) | 240 MHz, 512 KB SRAM, 4 MB flash, no PSRAM. 22.5 × 18 mm. | [B0GS1X97DZ](https://www.amazon.com/dp/B0GS1X97DZ) |
-| ELEGOO double-sided protoboard, 32 pcs | Cut one down to carry the S3 + LIS3DH. | [B072Z7Y19F](https://www.amazon.com/dp/B072Z7Y19F) |
-| LOVIMAG neodymium discs, 12 pcs, 32 × 3 mm, adhesive | Fridge mount. Three across the back is plenty for ~90 g. | [B072KDBJWC](https://www.amazon.com/dp/B072KDBJWC) |
-| BOENFU 6" flush cutters | For trimming the SuperMini headers off. | [B07C5PM8L4](https://www.amazon.com/dp/B07C5PM8L4) |
+| Waveshare 4" E Ink Spectra 6 (E6), 600×400, w/ HAT+ driver board | The panel. You'll use the ribbon + driver board, not the Pi HAT headers. | [B0DHTNHRRY](https://www.amazon.com/dp/B0DHTNHRRY) |
+| ESP32-S3 SuperMini ×10 | 4 MB flash. **Prototype on these** — bring up the panel, calibrate shake thresholds, measure sleep current. Build `-e polaroid`. | [B0GS1X97DZ](https://www.amazon.com/dp/B0GS1X97DZ) |
+| ELEGOO double-sided protoboard, 32 pcs | Cut one down to carry the MCU + LIS3DH. | [B072Z7Y19F](https://www.amazon.com/dp/B072Z7Y19F) |
+| LOVIMAG neodymium discs, 32 × 3 mm, adhesive | Fridge mount. Three across the back holds ~90 g fine. | [B072KDBJWC](https://www.amazon.com/dp/B072KDBJWC) |
+| BOENFU 6" flush cutters | For trimming headers off. | [B07C5PM8L4](https://www.amazon.com/dp/B07C5PM8L4) |
 
-### Still to order
+### Order
+
+**One Adafruit order covers the battery and the accelerometer:**
 
 | Part | Why this one | Link |
 | --- | --- | --- |
-| **Qimoo 103450 3.7 V 2000 mAh LiPo**, protection board, JST 1.25 | 50 × 34 × 10 mm. See the fit analysis below — this is the size that keeps everything in one plane. | [B0FT3CZ6N1](https://www.amazon.com/dp/B0FT3CZ6N1) |
-| **Adafruit LIS3DH triple-axis accelerometer breakout** (#2809) | The library, the click detector, and the `INT1` pin are all first-class. 25 × 19 mm. | [adafruit.com/product/2809](https://www.adafruit.com/product/2809) |
+| **Lithium Ion Battery 3.7 V 2000 mAh** (#2011) | 60 × 36 × **7 mm**, JST-PH, protection built in. See the fit analysis below — this is the size that keeps everything in one plane. | [adafruit.com/product/2011](https://www.adafruit.com/product/2011) |
+| **LIS3DH triple-axis accelerometer breakout** (#2809) | The library, the click detector, and `INT1` are all first-class. 25 × 19 mm. | [adafruit.com/product/2809](https://www.adafruit.com/product/2809) |
 
-Two notes on the battery pick, since it's the constrained part:
+**And direct from Seeed, 2-day:**
 
-The 103450 cell is **1700 mm²** of footprint against the panel's ~5500 mm² — 31%, comfortably
-under the half you asked for. A larger cell buys you nothing: the budget in `docs/POWER.md` already
-lands near five months, and anything bigger stops fitting in one plane.
+| Part | Why | Link |
+| --- | --- | --- |
+| **XIAO ESP32S3** | The board this is built around. 8 MB flash (53 photos), onboard LiPo charging, 21 × 17.5 mm, and a deep-sleep floor Seeed actually specifies. Build `-e polaroid-xiao`. | [seeedstudio.com](https://www.seeedstudio.com/XIAO-ESP32S3-p-5627.html) |
 
-Get the **JST 1.25** variant, not PH 2.0. The SuperMini has no battery connector at all, so you're
-soldering to pads either way, but 1.25 is the smaller strain-relief and it matters at 10 mm total
-stack height.
+Not the 2500 mAh (#328), even though it's barely more expensive. It's 50 × 60 mm, and that 60 mm
+dimension spans essentially the entire panel width — there'd be nowhere left in-plane for the MCU
+and the accelerometer, and the whole point of the exercise is that nothing stacks.
 
-You will also need, if you don't have them: 30 AWG silicone wire, a JST 1.25 pigtail, and a small
-LiPo charger board (TP4056 with protection) unless you're happy pulling the cell to charge it.
+You'll also want 30 AWG silicone wire and a JST-PH pigtail. You do **not** need a TP4056: the XIAO
+charges the cell over its own USB-C.
+
+## Why the XIAO
+
+It costs 53 photos against the 123 a 16 MB SuperMini would give, and it's worth it:
+
+**Onboard LiPo charging.** `B+` / `B-` pads on the underside, charged over the same USB-C you flash
+through. That deletes a part from a footprint that has no room for spare parts, and it means the
+couple charges the frame with a phone cable twice a year instead of you handing them a charger board.
+
+**It has no always-on power LED.** The generic SuperMini does, wired straight across the 3.3 V rail
+at 1–3 mA — which is fifty times the entire rest of the sleep budget and has to be physically cut
+off with the flush cutters. The XIAO simply doesn't have the problem.
+
+**Seeed publishes a deep-sleep number** (14 µA) and designed for it. Generic SuperMini sleep current
+is whatever that batch's regulator happens to do.
+
+53 photos is not really a constraint. At an hourly refresh that's a rotation that takes two and a
+half days to repeat, and the album is fully resident so the radio comes up once a day out of habit
+rather than out of need.
+
+One thing to know: the XIAO's charge current defaults to **100 mA**, so a full 2000 mAh charge takes
+about 20 hours. Irrelevant for a device charged twice a year, surprising if you don't expect it.
 
 ## Physical fit
 
-The point of the exercise: **nothing stacks.** The battery, the MCU, and the accelerometer all sit
-side by side behind the panel, so the finished object is only as thick as the panel plus the
-battery.
+The point of the exercise: **nothing stacks.** Battery, MCU, and accelerometer all sit side by side
+behind the panel, so the finished object is only as thick as the panel plus 7 mm.
 
 The 4" panel's active area is 84.5 × 56.4 mm (4" diagonal at 3:2). Call the outline ~90 × 61 mm —
 **measure your actual panel before cutting protoboard**, Waveshare's bezel varies between batches.
 
 ```
-        ~61 mm
-  ┌───────────────────┐
-  │  ┌─────────────┐  │   ← battery, 50 × 34 mm, 10 mm thick
-  │  │   2000 mAh  │  │
-  │  │   103450    │  │
-  │  └─────────────┘  │
-  │ ┌──────┐ ┌──────┐ │   ← S3 SuperMini 22.5 × 18   ~90 mm
-  │ │ S3   │ │LIS3DH│ │     LIS3DH breakout 25 × 19
-  │ └──────┘ └──────┘ │
-  │   [magnet] [mag]  │
-  └───────────────────┘
+          ~61 mm
+  ┌─────────────────────┐
+  │ ┌─────────────────┐ │
+  │ │                 │ │   battery 60 × 36 × 7 mm
+  │ │   2000 mAh      │ │   Adafruit #2011
+  │ │   #2011         │ │
+  │ └─────────────────┘ │            ~90 mm
+  │ ┌──────┐  ┌───────┐ │
+  │ │ XIAO │  │LIS3DH │ │   XIAO   21 × 17.5
+  │ │  S3  │  │       │ │   LIS3DH 25 × 19
+  │ └──────┘  └───────┘ │
+  │   [mag]     [mag]   │
+  └─────────────────────┘
 ```
 
-Used: 1700 + 405 + 475 = 2580 mm² of ~5490 mm². Leaves half the plane for wiring, the ribbon
-connector's turning radius, and the magnets.
+Battery is 2160 mm² of ~5490 mm² — **39%**, comfortably under the half you asked for. It leaves a
+30 × 61 mm strip at one end, and the XIAO and LIS3DH sit side by side in it with 15 mm to spare
+(21 + 25 = 46 mm against 61 mm available).
 
 Orient the LIS3DH so its **X axis lies in the plane of the fridge door** — that's the axis a shake
-swings along and the axis the door swings along, and it's the one the thresholds in `Config.h` are
+swings along and the axis the door swings along, and it's what the thresholds in `Config.h` are
 tuned against.
 
 ## Wiring
 
-Pins are chosen so every wake source is on an RTC-capable GPIO (`GPIO0–21` on the S3) and the
-battery divider lands on ADC1 (`GPIO1–10`), which is the ADC that still works while WiFi is up.
+The XIAO breaks out exactly eleven GPIO and this design needs exactly eleven, so there is no slack.
+Two constraints drove the assignment: every wake source must be on GPIO0–21 (the S3's RTC domain),
+and the battery divider must be on ADC1, the ADC that still works while WiFi is up. `D6`/`D7` are
+GPIO43/44 — outside the RTC domain, no ADC — so they get the two signals that need neither.
 
 ### Panel — SPI
 
-| Panel | S3 GPIO | Note |
+| Panel | XIAO pin | GPIO |
 | --- | --- | --- |
-| `SCK` | 12 | |
-| `MOSI` / `DIN` | 11 | |
-| `CS` | 10 | |
-| `DC` | 9 | |
-| `RST` | 8 | |
-| `BUSY` | 7 | input, panel drives it low while refreshing |
-| `PWR` | 6 | **gate the panel's rail through this.** See below. |
+| `SCK` | D6 | 43 |
+| `MOSI` / `DIN` | D7 | 44 |
+| `CS` | D10 | 9 |
+| `DC` | D9 | 8 |
+| `RST` | D8 | 7 |
+| `BUSY` | D5 | 6 |
+| `PWR` | D4 | 5 |
 | `VCC` | 3V3 | |
 | `GND` | GND | |
 
 ### Accelerometer — I²C
 
-| LIS3DH | S3 GPIO |
-| --- | --- |
-| `SCL` | 4 |
-| `SDA` | 5 |
-| `INT1` | 3 |
-| `3Vo` | 3V3 — **feed 3.3 V in here, not into `Vin`** |
-| `GND` | GND |
+| LIS3DH | XIAO pin | GPIO |
+| --- | --- | --- |
+| `SCL` | D3 | 4 |
+| `SDA` | D2 | 3 |
+| `INT1` | D1 | 2 |
+| `3Vo` | 3V3 — **feed 3.3 V here, not into `Vin`** | |
+| `GND` | GND | |
 
-### Battery sense
+### Battery
 
-`GPIO2` (ADC1_CH1), through a 2 × 1 MΩ divider off `BAT+`. One megohm per leg costs 1.65 µA
-continuously, which is the right trade against the leakage of a MOSFET gate — see `docs/POWER.md`.
+Cell to the `B+` / `B-` pads on the XIAO's underside. Sense through a 2 × 1 MΩ divider off `B+`
+into `D0` (GPIO1, ADC1_CH0). One megohm per leg costs 1.65 µA continuously, which is the right
+trade against the leakage and part count of a MOSFET switch.
 
-## Three things that will cost you the battery life if you skip them
+The SuperMini pinout (`-e polaroid`) is different and lives in `firmware/include/Config.h` under the
+`#else` branch. Both are supported; the firmware picks by build environment.
 
-**Cut the SuperMini's power LED.** It is wired straight across the 3.3 V rail and draws 1–3 mA
-forever. That alone is more than the entire rest of the design's sleep budget, by about fifty times.
-Find it next to the USB-C jack and remove it with the flush cutters, or lift one pad.
+## Pin budget: exactly enough, with nothing spare
 
-**Gate the panel through `GPIO6`.** The E6 driver board's regulator idles in the hundreds of µA even
-after the panel is told to sleep. Drive the gate low and the whole board disappears from the budget.
-The firmware assumes this pin exists (`PIN_EPD_PWR` in `Config.h`); if you wire the panel's `VCC`
-straight to 3.3 V instead, expect roughly half the runtime.
+The XIAO breaks out **11 GPIO**. This design needs **11**. That works, and it works with zero
+margin — worth knowing before you solder, because there is no room for a status LED, a reset
+button, or a spare line to probe with.
+
+| | Pins | |
+| --- | ---: | --- |
+| Panel SPI | 5 | `SCK`, `MOSI`, `CS`, `DC`, `RST` |
+| Panel `BUSY` | 1 | must be read; the panel holds it low for 15–35 s |
+| Panel `PWR` gate | 1 | see below |
+| I²C | 2 | `SCL`, `SDA` |
+| `INT1` | 1 | must be RTC-capable — this is the wake source |
+| Battery sense | 1 | must be ADC1 — ADC2 stops answering while WiFi is up |
+| **Total** | **11** | of 11 |
+
+Nothing here is padding. There's no MISO because the panel is write-only. There's no second chip
+select because there's one SPI device. The accelerometer is on I²C rather than SPI precisely because
+SPI would have cost another two pins.
+
+Two tests in `pio test -e native-xiao` assert that no pin is used twice, that `INT1` is inside the
+RTC domain, and that battery sense is on ADC1 — so a mistake in this table fails on your laptop
+rather than on a headerless board glued behind a panel.
+
+### If you need a pin back
+
+In order of what it costs you:
+
+**Drop the panel `PWR` gate (`D4`).** Wire the panel's `VCC` to 3.3 V and set `PIN_EPD_PWR` to `-1`.
+Sleep current goes from ~40 µA to ~69 µA — about **7 days off 162**. This is the cheapest pin
+available and the one to take first.
+
+**Drop battery sense (`D0`).** You lose the low-battery corner icon. The device still works; it just
+dies without warning, which for a gift is worse than it sounds — the couple would have no idea it
+was coming.
+
+**Don't drop `BUSY`.** You'd have to replace it with a fixed 35 s delay, which both wastes power on
+every single refresh (the dominant line item in the budget) and removes the timeout that stops a
+wedged panel from holding the device awake until the battery is flat.
+
+## Two things that will cost you the battery if you skip them
+
+**Gate the panel through `D4`.** The E6 driver board's regulator idles in the hundreds of µA even
+after the panel is told to sleep. Drive the gate low and the board disappears from the budget. The
+firmware assumes this pin exists (`PIN_EPD_PWR`); wire the panel's `VCC` straight to 3.3 V instead
+and expect roughly half the runtime.
 
 **Power the LIS3DH at `3Vo`, bypassing its regulator.** Adafruit's breakout has a 3.3 V LDO in front
 of the sensor for people feeding it 5 V. Its quiescent draw is ~29 µA — an order of magnitude more
-than the sensor itself pulls in low-power mode (2 µA). Feeding 3.3 V directly to the `3Vo` pin skips
-the regulator entirely. This is a supported use of that pin, not a hack.
+than the sensor itself pulls in low-power mode (2 µA). Feeding 3.3 V directly to `3Vo` skips it
+entirely. This is a supported use of that pin, not a hack.
+
+(On the SuperMini there is a third: cut the always-on power LED. The XIAO doesn't have one.)
 
 ## Flash capacity
 
@@ -119,58 +189,17 @@ incompressible by construction. With the no-OTA partition tables in `firmware/`:
 
 | Board | LittleFS | Photos | Env |
 | --- | --- | --- | --- |
-| 4 MB SuperMini (what you have) | 2.1 MB | **16** | `polaroid` |
-| 8 MB variant | 6.4 MB | 53 | `polaroid-8mb` |
-| **16 MB N16R8 variant** | 14.8 MB | **123** | `polaroid-16mb` |
+| **XIAO ESP32S3, 8 MB** | 6.4 MB | **53** | `polaroid-xiao` ← default |
+| SuperMini, 4 MB | 2.1 MB | 16 | `polaroid` |
+| SuperMini N16R8, 16 MB | 14.8 MB | 123 | `polaroid-16mb` |
 
 ### PSRAM is not storage
 
-The SuperMini you ordered is probably an **ESP32-S3FH4R2** — 4 MB flash *and* 2 MB PSRAM. That PSRAM
-does nothing for photo count. Photos live in flash, which survives power loss; PSRAM is volatile
-working memory that is empty every time the device wakes. 2 MB of PSRAM is still 16 photos.
+Most of these boards have PSRAM — the XIAO has 8 MB, and the SuperMini is often an S3FH4R2 with
+2 MB. It does nothing for photo count. Photos live in flash, which survives power loss; PSRAM is
+volatile working memory that is empty every time the device wakes.
 
-It's also not useful to this firmware in any other way. The framebuffer streams from LittleFS to SPI
-512 bytes at a time and is never held whole, so there is nothing large to allocate. PSRAM is
-therefore left uninitialized (`BOARD_HAS_PSRAM=0`), which is also the right call for power — an
-initialized PSRAM die adds current in deep sleep and returns nothing here.
-
-Check what you actually have:
-
-```bash
-esptool.py --port /dev/cu.usbmodem* flash_id
-```
-
-`ESP32-S3 (QFN56) (revision v0.2)` plus `Detected flash size: 4MB` is the R2. What matters is the
-flash line, not the PSRAM line.
-
-### Getting to 123 photos
-
-**Start building today on the 4 MB boards you already have.** Nothing about stages 1–7 of the build
-order cares about capacity — you're bringing up a panel, calibrating shake thresholds against a real
-fridge, and measuring sleep current. Sixteen photos is plenty to do all of that, and the board is
-already on your desk.
-
-Then, in parallel, order **[DIYmalls ESP32-S3 N16R8 Mini,
-2-pack](https://www.amazon.com/dp/B0HC2ZYKF2)** — same SuperMini form factor, same footprint, same
-pinout, 16 MB flash, and it ships from Amazon rather than from a slow boat. When it arrives you
-change `-e polaroid` to `-e polaroid-16mb` and reflash. No wiring changes, no code changes.
-
-The Seeed XIAO ESP32S3 (`-e polaroid-xiao`) is supported too and is a genuinely nicer board —
-onboard LiPo charging, 21 × 17.5 mm, a deep-sleep floor Seeed actually specifies. But it's 8 MB
-flash for 53 photos, and if it's quoting 3–6 weeks it is not worth blocking the build on. The
-profile is there if you ever want it.
-
-Sixteen photos is a thin rotation. At an hourly refresh the couple sees the same photo twice a day,
-and every photo they add past sixteen evicts another, which means the device has to sync more often
-to keep the rotation interesting — you end up spending radio time to work around missing flash.
-123 photos is more than they will plausibly upload, so the album is fully resident and the radio
-comes up once a day out of habit rather than out of need. **Storage is the cheapest way to buy back
-WiFi time.**
-
-**Don't return the 10-pack.** Keep it for bring-up. You are going to solder a panel ribbon, a LiPo,
-and an accelerometer onto a headerless board by hand, and the probability of killing one is not
-small. Ten cheap boards to practice and prototype on, plus two good ones for the actual gift, is the
-right shape — the 4 MB boards are perfectly fine for stages 1–4 of the build order, where you're
-displaying a hardcoded framebuffer and calibrating shake thresholds and don't care about capacity.
-
-Build with `-e polaroid-16mb` instead of `-e polaroid`.
+It's not useful to this firmware in any other way either. The framebuffer streams from LittleFS to
+SPI 512 bytes at a time and is never held whole, so there is nothing large to allocate. PSRAM is
+left uninitialized (`BOARD_HAS_PSRAM=0`), which is also the right call for power — an initialized
+PSRAM die adds current in deep sleep and returns nothing here.

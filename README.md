@@ -67,7 +67,7 @@ Build and flash the firmware:
 
 ```bash
 cd firmware
-pio run -e polaroid -t upload
+pio run -t upload        # default env is polaroid-xiao
 pio run -t uploadfs      # pushes data/ (framebuffers + manifest) to LittleFS
 ```
 
