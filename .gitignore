@@ -1,0 +1,11 @@
+.DS_Store
+node_modules/
+dist/
+coverage/
+.pio/
+firmware/data/**/*.bin
+firmware/data/manifest.json
+*.local
+.env
+secrets.h
+.scratch/
