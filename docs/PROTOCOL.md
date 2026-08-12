@@ -67,10 +67,24 @@ These are behind passkey auth, not the device token, and the device never calls 
 
 | | |
 | --- | --- |
-| `POST /polaroid/upload` | multipart JPEG/PNG/HEIC. Runs the pipeline, returns `{ id, previewUrl }`. |
+| `POST /polaroid/upload` | JPEG/PNG/HEIC body. Runs the pipeline, returns `{ id, previewUrl }`. |
 | `GET /polaroid/photos` | list with preview URLs, for the manage page |
-| `DELETE /polaroid/photo/{id}` | removes from the manifest; device drops it on next sync |
-| `PATCH /polaroid/photo/{id}` | `{ caption, crop, filmStock }` — re-renders, returns a new `id` |
+| `DELETE /polaroid/photo/{id}` | deletes both objects; device drops it on next sync |
+
+They require a `UserType.ADMIN` or `UserType.POLAROID_OWNER` token, and they are served from
+**polaroid.maxrosoff.com** — a separate origin, so it is listed in both the CORS allowlist and
+WebAuthn's `expectedOrigin`.
+
+## There is no database
+
+The photo list is a `ListObjectsV2` over the bucket. A table would hold id, hash and uploadedAt —
+exactly the Key, ETag and LastModified that S3 already returns — so it would only add a second copy
+of the truth that can disagree with the first. Every upload would become two writes that can
+half-fail, leaving a manifest entry pointing at a framebuffer that isn't there, which is the one
+failure the device cannot route around.
+
+Ordering happens in the Lambda, since S3 lists lexicographically rather than by date. That is a
+sort over a few dozen entries; it would be the wrong trade at a hundred thousand.
 
 ## What the device does with all this
 
