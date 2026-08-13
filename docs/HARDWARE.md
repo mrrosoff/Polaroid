@@ -25,7 +25,7 @@
 
 | Part | Why | Link |
 | --- | --- | --- |
-| **XIAO ESP32S3** | The board this is built around. 8 MB flash (53 photos), onboard LiPo charging, 21 × 17.5 mm, and a deep-sleep floor Seeed actually specifies. Build `-e polaroid-xiao`. | [seeedstudio.com](https://www.seeedstudio.com/XIAO-ESP32S3-p-5627.html) |
+| **XIAO ESP32S3** | The board this is built around. 8 MB flash (50 photos), onboard LiPo charging, 21 × 17.5 mm, and a deep-sleep floor Seeed actually specifies. Build `-e polaroid-xiao`. | [seeedstudio.com](https://www.seeedstudio.com/XIAO-ESP32S3-p-5627.html) |
 
 Not the 2500 mAh (#328), even though it's barely more expensive. It's 50 × 60 mm and 7.3 mm thick —
 500 mAh more (about two extra weeks on a five-month budget) in exchange for 40% more area in a case
@@ -36,7 +36,7 @@ charges the cell over its own USB-C.
 
 ## Why the XIAO
 
-It costs 53 photos against the 123 a 16 MB SuperMini would give, and it's worth it:
+It costs 50 photos against the 123 a 16 MB SuperMini would give, and it's worth it:
 
 **Onboard LiPo charging.** `B+` / `B-` pads on the underside, charged over the same USB-C you flash
 through. That deletes a part from a footprint that has no room for spare parts, and it means the
@@ -49,8 +49,8 @@ off with the flush cutters. The XIAO simply doesn't have the problem.
 **Seeed publishes a deep-sleep number** (14 µA) and designed for it. Generic SuperMini sleep current
 is whatever that batch's regulator happens to do.
 
-53 photos is not really a constraint. At an hourly refresh that's a rotation that takes two and a
-half days to repeat, and the album is fully resident so the radio comes up once a day out of habit
+50 photos is not really a constraint. At an hourly refresh that's a rotation that takes two days
+to repeat, and the album is fully resident so the radio comes up once a day out of habit
 rather than out of need.
 
 One thing to know: the XIAO's charge current defaults to **100 mA**, so a full 2000 mAh charge takes
@@ -204,11 +204,19 @@ entirely. This is a supported use of that pin, not a hack.
 Each framebuffer is exactly 120,000 bytes and they don't compress — dithered noise is
 incompressible by construction. With the no-OTA partition tables in `firmware/`:
 
-| Board | LittleFS | Photos | Env |
-| --- | --- | --- | --- |
-| **XIAO ESP32S3, 8 MB** | 6.4 MB | **53** | `polaroid-xiao` ← default |
-| SuperMini, 4 MB | 2.1 MB | 16 | `polaroid` |
-| SuperMini N16R8, 16 MB | 14.8 MB | 123 | `polaroid-16mb` |
+| Board | LittleFS | Fits | Cap | Env |
+| --- | --- | ---: | ---: | --- |
+| **XIAO ESP32S3, 8 MB** | 6.4 MB | 53 | **50** | `polaroid-xiao` ← default |
+| SuperMini, 4 MB | 2.1 MB | 17 | 50 | `polaroid` |
+| SuperMini N16R8, 16 MB | 14.8 MB | 123 | 50 | `polaroid-16mb` |
+
+The cap is 50, not the 53 that fit. `downloadPhoto` stages a full 120,000-byte temp file before
+renaming it over the old one, so a device holding 53 has 62,528 bytes free — half a frame — and can
+never replace a photo again. Three spare frames is what makes replacement work at all.
+
+It lives in two places that must agree: `MAX_PHOTOS` in `firmware/include/Config.h` and in the
+service's `api/common.ts`. The manifest is capped server-side to the newest 50, so the device never
+spends radio time on photos it has no room for. A native test asserts the headroom.
 
 ### PSRAM is not storage
 

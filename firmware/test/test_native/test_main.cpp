@@ -370,6 +370,26 @@ void test_empty_check_interval_is_slower_than_normal_refresh() {
     TEST_ASSERT_TRUE(EMPTY_CHECK_INTERVAL_SECONDS > REFRESH_INTERVAL_SECONDS);
 }
 
+// ------------------------------------------------------------ capacity
+
+// A download stages a full framebuffer as /p/.partial before renaming over the
+// old file. If MAX_PHOTOS filled the filesystem exactly, that staging write
+// would fail and the device could never replace a photo once full.
+void test_photo_limit_leaves_room_to_stage_a_download() {
+    constexpr std::uint32_t LITTLEFS_BYTES = 0x620000;  // partitions_8mb.csv
+    constexpr std::uint32_t used = static_cast<std::uint32_t>(MAX_PHOTOS) * PANEL_BYTES;
+
+    TEST_ASSERT_TRUE(used < LITTLEFS_BYTES);
+    TEST_ASSERT_TRUE(LITTLEFS_BYTES - used > PANEL_BYTES);
+}
+
+// The manifest is capped server-side, but the device parses into a fixed
+// budget. If the firmware's limit were the smaller of the two it would
+// silently drop photos the server considers live.
+void test_photo_limit_matches_the_service() {
+    TEST_ASSERT_EQUAL(50, MAX_PHOTOS);
+}
+
 // ------------------------------------------------------------ pinout
 
 // The XIAO breaks out exactly eleven GPIO and this design needs exactly
@@ -459,6 +479,9 @@ int main(int, char**) {
     RUN_TEST(test_low_warning_comes_before_critical);
     RUN_TEST(test_critical_threshold_leaves_charge_for_one_last_refresh);
     RUN_TEST(test_empty_check_interval_is_slower_than_normal_refresh);
+
+    RUN_TEST(test_photo_limit_leaves_room_to_stage_a_download);
+    RUN_TEST(test_photo_limit_matches_the_service);
 
     RUN_TEST(test_no_pin_is_used_twice);
     RUN_TEST(test_wake_pin_is_in_the_rtc_domain);

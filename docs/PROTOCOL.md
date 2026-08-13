@@ -37,7 +37,8 @@ anything.
 }
 ```
 
-Ordered oldest-first — that's display order, and it's also the order `NORMAL` mode walks. `hash` is
+Ordered oldest-first — that's display order, and the order `NORMAL` mode walks. Capped at the
+newest 50 (`MAX_PHOTOS`), so the device is never told about photos it has no room for. `hash` is
 the first 8 hex of the SHA-256 of the *packed framebuffer*, not of the source JPEG, so re-tuning the
 dither invalidates the cache correctly and re-cropping a photo does too.
 
