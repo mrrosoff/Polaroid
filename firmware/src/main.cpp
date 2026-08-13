@@ -59,17 +59,6 @@ void renderCurrentPhoto() {
     panel.displayFile(storage.fs(), path.data(), showLowBatteryIcon ? overlayHook : nullptr);
 }
 
-void jumpToPhoto(std::string_view id) {
-    const auto found = std::find_if(
-        manifest.photos.begin(), manifest.photos.end(),
-        [id](const PhotoEntry& photo) { return id == std::string_view(photo.id); });
-
-    if (found != manifest.photos.end()) {
-        rtcState().photoIndex =
-            static_cast<std::uint16_t>(std::distance(manifest.photos.begin(), found));
-    }
-}
-
 Mode decideMode(WakeReason reason, MotionEvent event) {
     if (!Net::hasCredentials()) {
         return Mode::Provision;
@@ -123,7 +112,7 @@ void runSync(bool triggeredByShake) {
             // whatever is already on the device.
             return;
         }
-        result = net.sync(storage, triggeredByShake);
+        result = net.sync(storage);
     }
 
     if (!result.ok) {
@@ -141,13 +130,9 @@ void runSync(bool triggeredByShake) {
     }
 
     // The whole point of the gesture: land on the photo that was just
-    // uploaded, not on the next one in rotation. Fall back to the newest
-    // local entry if /recent didn't answer.
-    if (result.newestId.has_value()) {
-        jumpToPhoto(*result.newestId);
-    } else {
-        state.photoIndex = newestIndex(manifest);
-    }
+    // uploaded, not on the next one in rotation. The manifest carries
+    // uploadedAt for every photo, so this needs no extra request.
+    state.photoIndex = newestIndex(manifest);
 }
 
 }  // namespace

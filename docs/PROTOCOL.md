@@ -44,22 +44,13 @@ dither invalidates the cache correctly and re-cropping a photo does too.
 The device compares this against its local manifest and computes three sets: fetch, delete, keep.
 Only `fetch` costs bandwidth.
 
-## `GET /polaroid/photo/{id}.bin`
+## `POST /polaroid/photo`
 
-Exactly 120,000 bytes, `application/octet-stream`, `Cache-Control: public, max-age=31536000,
+Body `{ "id": "01HQ7X2K" }`. Returns exactly 120,000 bytes, `application/octet-stream`, `Cache-Control: public, max-age=31536000,
 immutable`. The bytes for a given `id` never change — a re-render gets a new `id`.
 
 Supports `Range` requests. The device fetches in 8 KB chunks and writes each straight to LittleFS,
 so a photo never exists in RAM and a dropped connection resumes rather than restarting.
-
-## `GET /polaroid/recent?n=5`
-
-```json
-{ "photos": ["01HQ7X9M", "01HQ7X2K"] }
-```
-
-Most-recently-uploaded first. After a shake-triggered sync the device jumps to `photos[0]` so the
-first thing you see is the photo that was just added — that's the whole shake gesture, end to end.
 
 ## Human endpoints
 
@@ -69,11 +60,15 @@ These are behind passkey auth, not the device token, and the device never calls 
 | --- | --- |
 | `POST /polaroid/upload` | JPEG, PNG or HEIC body. Runs the pipeline, returns `{ id, previewUrl }`. |
 | `GET /polaroid/photos` | list with preview URLs, for the manage page |
-| `DELETE /polaroid/photo/{id}` | deletes both objects; device drops it on next sync |
+| `POST /polaroid/remove` | body `{ id }`; deletes both objects, device drops it on next sync |
 
 They require a `UserType.ADMIN` or `UserType.POLAROID_OWNER` token, and they are served from
-**polaroid.maxrosoff.com** — a separate origin, so it is listed in both the CORS allowlist and
-WebAuthn's `expectedOrigin`.
+`maxrosoff.com/polaroid`.
+
+`previewUrl` is a **presigned S3 URL**, not a route. An `<img src>` has to be a plain GET, and
+routing thumbnails through API Gateway would base64-inflate every one of them through a Lambda for
+no benefit while the bucket stays private. They expire after an hour, which outlives any visit to
+the page.
 
 ## There is no database
 
@@ -95,10 +90,10 @@ wake
        └─ yes → WiFi up
                 GET /manifest
                 diff → { fetch, delete, keep }
-                for each fetch: GET /photo/{id}.bin → LittleFS
+                for each fetch: POST /photo {id} → LittleFS
                 for each delete: unlink
                 write local manifest
-                if shake: GET /recent?n=1, jump to it
+                if shake: jump to the newest uploadedAt
                 WiFi down
                 render, sleep
 ```

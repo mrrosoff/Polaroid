@@ -25,7 +25,7 @@ void configureClient(WiFiClientSecure& client) {
     client.setTimeout(HTTP_TIMEOUT_MS / 1000);
 }
 
-[[nodiscard]] bool authorizedGet(HTTPClient& http, WiFiClientSecure& client, const String& url) {
+[[nodiscard]] bool beginRequest(HTTPClient& http, WiFiClientSecure& client, const String& url) {
     if (!http.begin(client, url)) {
         return false;
     }
@@ -98,7 +98,7 @@ bool Net::fetchManifest(Manifest& out) {
     WiFiClientSecure client;
     configureClient(client);
     HTTPClient http;
-    if (!authorizedGet(http, client, String(API_BASE_URL) + "/manifest")) {
+    if (!beginRequest(http, client, String(API_BASE_URL) + "/manifest")) {
         return false;
     }
 
@@ -150,18 +150,20 @@ bool Net::downloadPhoto(Storage& storage, const PhotoEntry& photo) {
     WiFiClientSecure client;
     configureClient(client);
     HTTPClient http;
-    const String url = String(API_BASE_URL) + "/photo/" + photo.id.data() + ".bin";
+    const String url = String(API_BASE_URL) + "/photo";
+    const String requestBody = String("{\"id\":\"") + photo.id.data() + "\"}";
 
     std::uint32_t offset = 0;
     while (offset < PANEL_BYTES) {
         const std::uint32_t end = std::min(offset + DOWNLOAD_CHUNK_BYTES, PANEL_BYTES) - 1;
 
-        if (!authorizedGet(http, client, url)) {
+        if (!beginRequest(http, client, url)) {
             break;
         }
+        http.addHeader("Content-Type", "application/json");
         http.addHeader("Range", "bytes=" + String(offset) + "-" + String(end));
 
-        const int status = http.GET();
+        const int status = http.POST(requestBody);
         if (status != HTTP_CODE_PARTIAL_CONTENT && status != HTTP_CODE_OK) {
             http.end();
             break;
@@ -192,35 +194,7 @@ bool Net::downloadPhoto(Storage& storage, const PhotoEntry& photo) {
     return storage.fs().rename(tempPath, finalPath.data());
 }
 
-std::optional<std::string> Net::fetchNewestId() {
-    if (!connected_) {
-        return std::nullopt;
-    }
-
-    WiFiClientSecure client;
-    configureClient(client);
-    HTTPClient http;
-    if (!authorizedGet(http, client, String(API_BASE_URL) + "/recent?n=1")) {
-        return std::nullopt;
-    }
-
-    if (http.GET() != HTTP_CODE_OK) {
-        http.end();
-        return std::nullopt;
-    }
-
-    JsonDocument doc;
-    const DeserializationError error = deserializeJson(doc, http.getStream());
-    http.end();
-    if (error || doc["photos"].size() == 0) {
-        return std::nullopt;
-    }
-
-    const std::string id = doc["photos"][0] | "";
-    return id.empty() ? std::nullopt : std::optional{id};
-}
-
-SyncResult Net::sync(Storage& storage, bool wantNewest) {
+SyncResult Net::sync(Storage& storage) {
     SyncResult result;
 
     Manifest local;
@@ -270,10 +244,6 @@ SyncResult Net::sync(Storage& storage, bool wantNewest) {
     }
 
     storage.saveManifest(committed);
-
-    if (wantNewest) {
-        result.newestId = fetchNewestId();
-    }
 
     result.ok = true;
     return result;

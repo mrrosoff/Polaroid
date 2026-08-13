@@ -3,8 +3,6 @@
 #include <Arduino.h>
 
 #include <cstdint>
-#include <optional>
-#include <string>
 
 #include "Config.h"
 #include "Manifest.h"
@@ -16,7 +14,6 @@ struct SyncResult {
     bool ok = false;
     std::uint16_t fetched = 0;
     std::uint16_t removed = 0;
-    std::optional<std::string> newestId;
 };
 
 // RAII: the destructor tears the radio down. Every early return out of a sync
@@ -41,11 +38,10 @@ class Net {
 
     [[nodiscard]] bool fetchManifest(Manifest& out);
     [[nodiscard]] bool downloadPhoto(Storage& storage, const PhotoEntry& photo);
-    [[nodiscard]] std::optional<std::string> fetchNewestId();
 
     // The whole of SYNC mode: manifest, diff, fetch, delete, save. Every
     // failure path leaves local storage exactly as it was.
-    SyncResult sync(Storage& storage, bool wantNewest);
+    SyncResult sync(Storage& storage);
 
   private:
     bool connected_ = false;
