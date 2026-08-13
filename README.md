@@ -18,7 +18,7 @@ goes back to sleep.
 
 ```
  photo.jpg ──▶ [ backend ]                      [ device ]
-                 crop 400×600                     wake (timer or shake)
+                 crop 400×600 full-bleed          wake (timer or shake)
                  Polaroid film curve              read index from RTC memory
                  Floyd–Steinberg → 6 inks         stream .bin from LittleFS → SPI
                  pack 4bpp → 120,000 B            deep sleep
@@ -94,10 +94,6 @@ firmware reads `CLICK_SRC` and `INT1_SRC` to decide which happened.
 
 Waveshare 4" E Ink Spectra 6 (E6), `EPD_4in0e`. Native **400 × 600 portrait**, four bits per pixel,
 two pixels per byte — **120,000 bytes per frame**, fixed.
-
-That 2:3 portrait shape is a happy accident: it's almost exactly a Polaroid. The pipeline renders a
-square photo with a white border and a taller chin at the bottom, so the thing reads as a Polaroid
-even before you pick it up.
 
 Six inks, and nothing in between — no grays, no blends:
 

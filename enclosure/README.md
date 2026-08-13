@@ -37,11 +37,10 @@ the magnet. The pocket recesses it flush so the case sits flat instead of pivoti
 Its ceiling is a 32 mm circular bridge; if your printer sags there, pause at that layer and drop the
 magnet in — it's adhesive-backed.
 
-**There is no physical Polaroid chin, on purpose.** The 101 mm driver board sets the minimum height,
-so a chin has to be *added* below it, which pushes the case to a 1:1.5 aspect — further from a real
-Polaroid's 1:1.216 than the plain bezel is — and hides a quarter of the panel to do it. The frame is
-drawn in ink instead, at 0.890 image-to-width against a real print's 0.898. The long comment at the
-top of the `.scad` has the full argument.
+**There is no chin, physical or drawn.** The photo runs full-bleed across the whole panel. A
+physical chin would have to sit below the 101 mm driver board, pushing the case to a 1:1.5 aspect —
+further from a real Polaroid's 1:1.216 than the plain bezel is — while hiding a quarter of the
+panel. The long comment at the top of the `.scad` has the argument.
 
 **The assertions are load-bearing.** Three of them check that the screw flanges actually exist where
 the screws arrive and don't overlap the display board. One caught a 2.5 mm overhang while this file

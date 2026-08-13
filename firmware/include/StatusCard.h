@@ -114,9 +114,7 @@ constexpr void horizontalSpan(std::span<std::uint8_t> row, std::uint16_t x0, std
 
 // ---------------------------------------------------------------- empty card
 
-// Laid out to match the Polaroid frame the photos use (see frame.ts): the
-// battery glyph sits inside the square image area, the words sit on the chin —
-// so it reads as a Polaroid somebody wrote on, not as an error screen.
+// Glyph above, words below, both on white paper.
 namespace empty_card {
 
 inline constexpr std::uint16_t BODY_X0 = 90;

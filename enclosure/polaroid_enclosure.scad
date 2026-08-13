@@ -13,22 +13,13 @@
 //   - Accelerometer: Adafruit LIS3DH breakout, 25 x 19mm
 //   - Magnet: one 32mm dia x 3mm neodymium disc, adhesive-backed
 //
-// WHY THERE IS NO PHYSICAL POLAROID CHIN.
+// NO POLAROID CHIN, PHYSICAL OR DRAWN.
 //
-// The obvious move is to make the case a Polaroid shape — square window up
-// top, deep opaque chin below. It doesn't work here, and it's worth writing
-// down why so nobody re-litigates it:
-//
-//   The driver board is 101mm tall and sets the minimum case height. A
-//   physical chin has to be ADDED below that, pushing the case past 130mm at
-//   ~87mm wide — a 1:1.5 aspect. A real Polaroid 600 print is 1:1.216. So the
-//   physical chin makes the object LESS Polaroid-shaped, not more, and hides
-//   ~24% of a $45 panel behind opaque plastic to do it.
-//
-//   The frame is drawn in ink instead (see api/polaroid/frame.ts): a 3.1mm
-//   white border, a 50.2mm square image, and a 28.2mm chin, all inside the
-//   84.6 x 56.4mm active area. Image-to-width there is 0.890 against a real
-//   Polaroid's 0.898 — within a percent, using every pixel.
+// The panel shows the photo full-bleed across all 400x600. A physical chin
+// would have to be added below the 101mm driver board, pushing the case past
+// 130mm at ~87mm wide - a 1:1.5 aspect against a real Polaroid print's 1:1.216,
+// so it would read as less Polaroid, not more, while hiding a quarter of a $45
+// panel behind opaque plastic.
 //
 // SIZE: 73.6 x 122.6 x 21.5mm, against a board that is 68 x 101. That is
 // 2.8mm of bezel either side of the board and 8.6mm either side of the visible

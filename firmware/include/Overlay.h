@@ -33,8 +33,8 @@ constexpr void setPixel(std::span<std::uint8_t> rowBytes, std::uint16_t x, confi
 
 namespace icon {
 
-// A 24 x 12 battery, bottom-right, inside the Polaroid chin where there is
-// already white paper — so it reads as an indicator and not as damage.
+// A 24 x 12 battery, bottom-right. It clears the paper under itself, so it
+// stays legible over whatever the photo is doing there.
 inline constexpr std::uint16_t WIDTH = 24;
 inline constexpr std::uint16_t HEIGHT = 12;
 inline constexpr std::uint16_t X = config::PANEL_WIDTH - WIDTH - 12;
@@ -55,8 +55,8 @@ static_assert(Y + HEIGHT <= config::PANEL_HEIGHT);
 
 namespace offline_icon {
 
-// Three signal bars with a slash through them, bottom-left of the chin so it
-// can sit beside the battery icon without either moving.
+// Three signal bars with a slash, bottom-left so it sits beside the battery
+// icon without either moving.
 inline constexpr std::uint16_t WIDTH = 24;
 inline constexpr std::uint16_t HEIGHT = 12;
 inline constexpr std::uint16_t X = 12;
