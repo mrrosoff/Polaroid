@@ -29,9 +29,17 @@ Manifest manifest;
 BatteryReading battery;
 
 bool showLowBatteryIcon = false;
+bool showOfflineIcon = false;
 
 bool overlayHook(std::uint16_t row, std::span<std::uint8_t> rowBytes) {
-    return lowBatteryOverlay(row, rowBytes);
+    bool touched = false;
+    if (showLowBatteryIcon) {
+        touched |= lowBatteryOverlay(row, rowBytes);
+    }
+    if (showOfflineIcon) {
+        touched |= offlineOverlay(row, rowBytes);
+    }
+    return touched;
 }
 
 // Renders whatever is at rtcState().photoIndex. Every failure here is
@@ -56,7 +64,8 @@ void renderCurrentPhoto() {
     if (!panel.begin()) {
         return;
     }
-    panel.displayFile(storage.fs(), path.data(), showLowBatteryIcon ? overlayHook : nullptr);
+    const bool anyIcon = showLowBatteryIcon || showOfflineIcon;
+    panel.displayFile(storage.fs(), path.data(), anyIcon ? overlayHook : nullptr);
 }
 
 Mode decideMode(WakeReason reason, MotionEvent event) {
@@ -76,7 +85,7 @@ Mode decideMode(WakeReason reason, MotionEvent event) {
         return Mode::Normal;
     }
 
-    if (rtcState().secondsSinceSync >= SYNC_INTERVAL_SECONDS) {
+    if (rtcState().secondsSinceSync >= syncInterval(rtcState().syncFailures)) {
         return Mode::Sync;
     }
     return Mode::Normal;
@@ -107,21 +116,30 @@ void runSync(bool triggeredByShake) {
         // pushing pixels. Overlapping WiFi with a panel refresh would put the
         // two biggest current draws in the design on top of each other.
         Net net;
-        if (!net.connect()) {
-            // A failed sync is not an error state. Fall through and render
-            // whatever is already on the device.
-            return;
+        if (net.connect()) {
+            result = net.sync(storage);
         }
-        result = net.sync(storage);
     }
 
+    RtcState& state = rtcState();
+
     if (!result.ok) {
+        // POWER: count the failure and back off. Retrying hourly through a
+        // router outage costs 24 connect timeouts a day, which is more than the
+        // entire rest of the budget. secondsSinceSync is reset either way so it
+        // measures time since the last attempt, not since the last success.
+        if (state.syncFailures < MAX_SYNC_FAILURES) {
+            state.syncFailures++;
+        }
+        state.secondsSinceSync = 0;
+        showOfflineIcon = state.syncFailures >= OFFLINE_ICON_AFTER_FAILURES;
         return;
     }
 
-    storage.loadManifest(manifest);
+    state.syncFailures = 0;
+    showOfflineIcon = false;
 
-    RtcState& state = rtcState();
+    storage.loadManifest(manifest);
     state.photoCount = manifest.size();
     state.secondsSinceSync = 0;
 
@@ -170,6 +188,10 @@ void setup() {
     battery = readBattery();
     showLowBatteryIcon = battery.low;
     state.lowBattery = battery.low ? 1 : 0;
+
+    // From persisted state, not just from runSync: most wakes never sync, and
+    // the icon still has to appear on those refreshes.
+    showOfflineIcon = state.syncFailures >= OFFLINE_ICON_AFTER_FAILURES;
 
     // Recovered from a charge. Clearing the flag first means the normal path
     // below repaints a photo over the card without any special casing.

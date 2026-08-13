@@ -370,6 +370,85 @@ void test_empty_check_interval_is_slower_than_normal_refresh() {
     TEST_ASSERT_TRUE(EMPTY_CHECK_INTERVAL_SECONDS > REFRESH_INTERVAL_SECONDS);
 }
 
+// ------------------------------------------------------------ sync backoff
+
+void test_healthy_sync_uses_the_daily_interval() {
+    TEST_ASSERT_EQUAL_UINT32(SYNC_INTERVAL_SECONDS, syncInterval(0));
+}
+
+// A router outage used to retry every hour: 24 connect timeouts a day at 15 s
+// and 120 mA is ~12 mAh, more than the entire rest of the daily budget.
+void test_backoff_doubles_then_caps_at_the_daily_interval() {
+    TEST_ASSERT_EQUAL_UINT32(SYNC_RETRY_BASE_SECONDS, syncInterval(1));
+    TEST_ASSERT_EQUAL_UINT32(SYNC_RETRY_BASE_SECONDS * 2, syncInterval(2));
+    TEST_ASSERT_EQUAL_UINT32(SYNC_RETRY_BASE_SECONDS * 4, syncInterval(3));
+
+    for (std::uint8_t failures = 1; failures <= MAX_SYNC_FAILURES; failures++) {
+        TEST_ASSERT_TRUE(syncInterval(failures) <= SYNC_INTERVAL_SECONDS);
+    }
+}
+
+void test_backoff_never_retries_sooner_than_the_previous_step() {
+    std::uint32_t previous = 0;
+    for (std::uint8_t failures = 1; failures <= MAX_SYNC_FAILURES; failures++) {
+        const std::uint32_t interval = syncInterval(failures);
+        TEST_ASSERT_TRUE(interval >= previous);
+        previous = interval;
+    }
+}
+
+// The icon should mean "this has really stopped working", not "one blip".
+void test_offline_icon_waits_for_several_failures() {
+    TEST_ASSERT_TRUE(OFFLINE_ICON_AFTER_FAILURES >= 2);
+    TEST_ASSERT_TRUE(OFFLINE_ICON_AFTER_FAILURES <= MAX_SYNC_FAILURES);
+}
+
+// ------------------------------------------------------------ offline icon
+
+void test_offline_overlay_skips_rows_outside_the_icon() {
+    Row row{};
+    row.fill(0x66);
+
+    TEST_ASSERT_FALSE(offlineOverlay(0, row));
+    TEST_ASSERT_FALSE(offlineOverlay(offline_icon::Y - 1, row));
+    TEST_ASSERT_FALSE(offlineOverlay(offline_icon::Y + offline_icon::HEIGHT, row));
+
+    for (std::size_t i = 0; i < row.size(); i++) {
+        TEST_ASSERT_EQUAL_HEX8(0x66, row[i]);
+    }
+}
+
+// Both icons live in the chin and are drawn on the same refresh, so they must
+// not share a column.
+void test_offline_and_battery_icons_do_not_overlap() {
+    const bool offlineIsLeft = offline_icon::X + offline_icon::WIDTH <= icon::X;
+    const bool batteryIsLeft = icon::X + icon::WIDTH <= offline_icon::X;
+    TEST_ASSERT_TRUE(offlineIsLeft || batteryIsLeft);
+}
+
+void test_offline_overlay_draws_the_tallest_bar_on_every_row() {
+    Row row{};
+    row.fill(0x66);
+
+    // The third bar is full height, so it is inked on the icon's top row.
+    TEST_ASSERT_TRUE(offlineOverlay(offline_icon::Y, row));
+    const std::uint16_t tallBar = offline_icon::X + 2 * offline_icon::BAR_PITCH;
+    TEST_ASSERT_EQUAL(INK_RED, getPixel(row, tallBar));
+
+    // The shortest bar is not, and the paper under it is cleared rather than
+    // left showing the photo's dither.
+    TEST_ASSERT_EQUAL(INK_WHITE, getPixel(row, offline_icon::X + 1));
+}
+
+void test_offline_overlay_draws_a_slash() {
+    Row row{};
+    row.fill(0x66);
+    offlineOverlay(offline_icon::Y + offline_icon::HEIGHT - 1, row);
+
+    // Bottom row: the slash sits at the icon's left edge.
+    TEST_ASSERT_EQUAL(INK_BLACK, getPixel(row, offline_icon::X));
+}
+
 // ------------------------------------------------------------ capacity
 
 // A download stages a full framebuffer as /p/.partial before renaming over the
@@ -479,6 +558,16 @@ int main(int, char**) {
     RUN_TEST(test_low_warning_comes_before_critical);
     RUN_TEST(test_critical_threshold_leaves_charge_for_one_last_refresh);
     RUN_TEST(test_empty_check_interval_is_slower_than_normal_refresh);
+
+    RUN_TEST(test_healthy_sync_uses_the_daily_interval);
+    RUN_TEST(test_backoff_doubles_then_caps_at_the_daily_interval);
+    RUN_TEST(test_backoff_never_retries_sooner_than_the_previous_step);
+    RUN_TEST(test_offline_icon_waits_for_several_failures);
+
+    RUN_TEST(test_offline_overlay_skips_rows_outside_the_icon);
+    RUN_TEST(test_offline_and_battery_icons_do_not_overlap);
+    RUN_TEST(test_offline_overlay_draws_the_tallest_bar_on_every_row);
+    RUN_TEST(test_offline_overlay_draws_a_slash);
 
     RUN_TEST(test_photo_limit_leaves_room_to_stage_a_download);
     RUN_TEST(test_photo_limit_matches_the_service);

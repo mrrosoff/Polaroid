@@ -112,4 +112,17 @@ struct ManifestDiff {
     return static_cast<std::uint16_t>(std::distance(manifest.photos.begin(), newest));
 }
 
+// Seconds to wait before the next sync attempt. Zero failures is the normal
+// daily cadence; each consecutive failure doubles a one-hour retry until it
+// reaches that cadence again.
+[[nodiscard]] constexpr std::uint32_t syncInterval(std::uint8_t failures) {
+    if (failures == 0) {
+        return config::SYNC_INTERVAL_SECONDS;
+    }
+    const std::uint8_t shift = std::min<std::uint8_t>(
+        static_cast<std::uint8_t>(failures - 1), config::MAX_SYNC_FAILURES);
+    const std::uint32_t backoff = config::SYNC_RETRY_BASE_SECONDS << shift;
+    return std::min(backoff, config::SYNC_INTERVAL_SECONDS);
+}
+
 }  // namespace polaroid

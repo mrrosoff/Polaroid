@@ -106,6 +106,18 @@ constexpr uint32_t REFRESH_INTERVAL_SECONDS = 60 * 60;  // hourly
 
 constexpr uint32_t SYNC_INTERVAL_SECONDS = 24 * 60 * 60;
 
+// A failed sync retries sooner than a day, then backs off: 1h, 2h, 4h ... up
+// to the normal interval. Without this a router outage retries every hour, and
+// 24 connect timeouts a day costs more than the entire rest of the budget.
+constexpr uint32_t SYNC_RETRY_BASE_SECONDS = 60 * 60;
+
+// Draw the offline icon once this many syncs in a row have failed. Three is
+// about seven hours of backoff, so a brief blip never shows.
+constexpr uint8_t OFFLINE_ICON_AFTER_FAILURES = 3;
+
+// Caps the backoff shift so it can't overflow.
+constexpr uint8_t MAX_SYNC_FAILURES = 8;
+
 // A shake is a deliberate act, so it gets a longer network budget than the
 // unattended daily sync — someone is standing there watching.
 constexpr uint32_t WIFI_CONNECT_TIMEOUT_MS = 15'000;

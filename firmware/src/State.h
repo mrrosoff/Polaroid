@@ -34,6 +34,8 @@ struct RtcState {
     // would redraw the card on every wake, spending the last of the battery
     // repainting a picture that is already there.
     uint8_t emptyCardDrawn;
+    // Consecutive failed syncs. Drives the retry backoff and the offline icon.
+    uint8_t syncFailures;
     uint32_t checksum;
 };
 

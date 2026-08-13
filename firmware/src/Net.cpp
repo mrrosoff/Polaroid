@@ -96,11 +96,13 @@ bool Net::fetchManifest(Manifest& out) {
     WiFiClientSecure client;
     configureClient(client);
     HTTPClient http;
-    if (!beginRequest(http, client, String(API_BASE_URL) + "/manifest")) {
+    if (!beginRequest(http, client, String(API_BASE_URL) + "/photo")) {
         return false;
     }
+    http.addHeader("Content-Type", "application/json");
 
-    if (http.GET() != HTTP_CODE_OK) {
+    // No id means metadata for every photo rather than one framebuffer.
+    if (http.POST("{}") != HTTP_CODE_OK) {
         http.end();
         return false;
     }

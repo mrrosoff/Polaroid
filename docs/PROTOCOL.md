@@ -25,10 +25,11 @@ an `exp` against.
 The human-facing upload page uses the site's existing passkey auth and a `UserType.SHARE` token, so
 the couple gets a link and never sees the device token.
 
-## `GET /polaroid/manifest`
+## `POST /polaroid/photo`
 
-The whole point of the sync. Small, cacheable, and enough to diff against without downloading
-anything.
+One endpoint, two answers, discriminated by whether the body carries an id.
+
+**`{}`** — metadata for every photo the device should be holding:
 
 ```json
 {
@@ -40,17 +41,11 @@ anything.
 }
 ```
 
-Ordered oldest-first — that's display order, and the order `NORMAL` mode walks. Capped at the
-newest 50 (`MAX_PHOTOS`), so the device is never told about photos it has no room for. `hash` is
-the first 8 hex of the SHA-256 of the *packed framebuffer*, not of the source JPEG, so re-tuning the
-dither invalidates the cache correctly and re-cropping a photo does too.
+Ordered oldest-first — display order, and the order `NORMAL` mode walks. Capped at the newest 50
+(`MAX_PHOTOS`), so the device is never told about photos it has no room for. The device diffs this
+against its local manifest to get three sets: fetch, delete, keep. Only `fetch` costs bandwidth.
 
-The device compares this against its local manifest and computes three sets: fetch, delete, keep.
-Only `fetch` costs bandwidth.
-
-## `POST /polaroid/photo`
-
-Body `{ "id": "01HQ7X2K" }`. Returns exactly 120,000 bytes, `application/octet-stream`, `Cache-Control: public, max-age=31536000,
+**`{ "id": "01HQ7X2K" }`** — exactly 120,000 bytes, `application/octet-stream`, `Cache-Control: public, max-age=31536000,
 immutable`. The bytes for a given `id` never change — a re-render gets a new `id`.
 
 One request, no `Range`. `HTTPClient::writeToStream()` already streams the body to LittleFS in
@@ -95,7 +90,7 @@ wake
   └─ shake, or 24 h since last sync?
        ├─ no  → advance index, render, sleep          (no network at all)
        └─ yes → WiFi up
-                GET /manifest
+                POST /photo {}
                 diff → { fetch, delete, keep }
                 for each fetch: POST /photo {id} → LittleFS
                 for each delete: unlink

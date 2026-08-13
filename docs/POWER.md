@@ -84,6 +84,13 @@ triples transfer time. Bulk transfer with CS held is the same wire protocol.
 datasheet's refresh range. On timeout the firmware gives up and sleeps; e-ink keeps whatever was
 already on screen.
 
+**A failed sync backs off.** `syncInterval()` goes 1 h, 2 h, 4 h … up to the normal daily cadence,
+counted from the last *attempt* rather than the last success. Retrying hourly through a router
+outage would cost 24 connect timeouts a day — 15 s at 120 mA each, about 12 mAh, more than the
+entire rest of the budget. It would have halved runtime with no visible symptom. After three
+consecutive failures the panel gets a small offline icon, composited onto a refresh that was
+happening anyway.
+
 **Sync has a hard wall on radio time.** `SYNC_TIMEOUT_MS` is 45 s. Whatever downloaded is committed
 and the rest waits for tomorrow — better than holding the radio up until a bad connection drains
 the cell.
