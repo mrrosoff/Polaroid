@@ -58,7 +58,7 @@ These are behind passkey auth, not the device token, and the device never calls 
 
 | | |
 | --- | --- |
-| `POST /polaroid/upload` | JPEG, PNG or HEIC body. Runs the pipeline, returns `{ id, previewUrl }`. |
+| `POST /polaroid/upload` | JPEG, PNG or HEIC body. Runs the pipeline, returns `{ id, previewUrl }`. No options — one film profile, and whatever editing the uploader already did is respected. |
 | `GET /polaroid/photos` | list with preview URLs, for the manage page |
 | `POST /polaroid/remove` | body `{ id }`; deletes both objects, device drops it on next sync |
 
