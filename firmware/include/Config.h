@@ -199,10 +199,8 @@ constexpr uint32_t EMPTY_CHECK_INTERVAL_SECONDS = 6 * 60 * 60;
 constexpr char API_BASE_URL[] = "https://api.maxrosoff.com/polaroid";
 constexpr char PROVISION_AP_NAME[] = "Polaroid Setup";
 
-// Must match MAX_PHOTOS in the service's api/common.ts. The 8MB LittleFS holds
-// 53 framebuffers, but downloadPhoto stages a full 120,000-byte temp file
-// before renaming over the old one, so a device at 53 could never replace a
-// photo. Three frames of slack is what makes replacement possible at all.
+// 50, not the 53 that fit: downloadPhoto stages a full temp file before
+// replacing. Must match MAX_PHOTOS in the service's api/common.ts.
 constexpr uint8_t MAX_PHOTOS = 50;
 
 constexpr char MANIFEST_PATH[] = "/manifest.json";
