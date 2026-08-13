@@ -44,23 +44,21 @@ In Personal-Website:
 | --- | --- |
 | `api/polaroid/` | image pipeline — palette, film emulation, dither, packing, frame |
 | `api/endpoints/polaroid/` | six Lambda handlers behind `api.maxrosoff.com/polaroid` |
-| `src/components/Polaroid.tsx` | the couple's upload page, at `/polaroid` |
-| `scripts/renderPolaroid.ts` | CLI: photo → `.bin` you can flash by hand |
-| `test/polaroid*.test.ts` | 45 tests |
+| `src/components/Polaroid.tsx` | the couple's upload page, at `maxrosoff.com/polaroid` |
+| `test/polaroid*.test.ts` | vitest |
 
-The two halves are developed independently. The CLI renders `.bin` files you can push to the device
-long before the network path is deployed, and the firmware's tests run on your laptop with no
+The two halves are developed independently — the firmware's tests run on your laptop with no
 hardware attached.
 
 ## Quick start
 
-Render a photo to a device framebuffer and a preview you can look at:
+Pull a rendered framebuffer down to flash by hand:
 
 ```bash
-cd ../Personal-Website
-npm install
-npm run render-polaroid -- ~/Pictures/wedding.jpg --out /tmp/photo
-# writes /tmp/photo.bin (120,000 bytes) and /tmp/photo.png
+curl -H "Authorization: Bearer $POLAROID_DEVICE_TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{"id":"<an id from /manifest>"}' \
+     https://api.maxrosoff.com/polaroid/photo > firmware/data/p/test.bin
 ```
 
 Build and flash the firmware:
@@ -74,8 +72,8 @@ pio run -t uploadfs      # pushes data/ (framebuffers + manifest) to LittleFS
 Run the tests:
 
 ```bash
-cd firmware              && pio test -e native   # 21, no hardware needed
-cd ../../Personal-Website && npm test            # 45
+cd firmware               && pio test -e native -e native-xiao   # 72, no hardware needed
+cd ../../Personal-Website && npm test                            # 70
 ```
 
 ## Modes
