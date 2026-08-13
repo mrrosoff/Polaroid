@@ -14,10 +14,13 @@ Every device request carries a static token:
 Authorization: Bearer <POLAROID_DEVICE_TOKEN>
 ```
 
-The token is stored in SSM at `/polaroid/device-token` and baked into the firmware at
-`firmware/include/Secrets.h` (gitignored; copy `Secrets.h.example`). One device, one token, rotated
-by hand if it ever leaks. Deliberately not JWT: the device has no clock it trusts across a two-month
-sleep, so anything with an `exp` would be a liability.
+Stored in SSM at `/website/polaroid/device-secret`, baked into the firmware at
+`firmware/include/Secrets.h` (gitignored; copy `Secrets.h.example`). One device, one secret, rotated
+by hand if it ever leaks.
+
+This is the same scheme the Spotify display uses, and the same code — `isDevice()` in
+`api/auth.ts`. A static secret rather than a JWT because neither device has a clock worth trusting
+an `exp` against.
 
 The human-facing upload page uses the site's existing passkey auth and a `UserType.SHARE` token, so
 the couple gets a link and never sees the device token.
