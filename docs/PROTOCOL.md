@@ -25,28 +25,29 @@ an `exp` against.
 The human-facing upload page uses the site's existing passkey auth and a `UserType.SHARE` token, so
 the couple gets a link and never sees the device token.
 
-## `POST /polaroid/photo`
+## `GET /polaroid/photos`
 
-One endpoint, two answers, discriminated by whether the body carries an id.
-
-**`{}`** — metadata for every photo the device should be holding:
+The list, read by both the frame and the manage page. Newest first, uncapped:
 
 ```json
 {
-  "version": 1,
   "photos": [
-    { "id": "01HQ7X2K", "hash": "a3f2c1d4", "uploadedAt": 1755043200 },
-    { "id": "01HQ7X9M", "hash": "9b7e0a12", "uploadedAt": 1755129600 }
+    { "id": "01HQ7X9M", "hash": "9b7e0a12", "uploadedAt": 1755129600, "previewUrl": "https://..." }
   ]
 }
 ```
 
-Ordered oldest-first — display order, and the order `NORMAL` mode walks. Capped at the newest 50
-(`MAX_PHOTOS`), so the device is never told about photos it has no room for. The device diffs this
-against its local manifest to get three sets: fetch, delete, keep. Only `fetch` costs bandwidth.
+The device takes the first `MAX_PHOTOS` — which are the newest, since the list is newest-first —
+then reverses them into display order, and diffs against its local manifest to get three sets:
+fetch, delete, keep. Only `fetch` costs bandwidth. It ignores `previewUrl`.
 
-**`{ "id": "01HQ7X2K" }`** — exactly 120,000 bytes, `application/octet-stream`, `Cache-Control: public, max-age=31536000,
-immutable`. The bytes for a given `id` never change — a re-render gets a new `id`.
+The page shows everything, uncapped, so photos past the frame's capacity can still be deleted.
+
+## `POST /polaroid/photo`
+
+Body `{ "id": "01HQ7X2K" }`. Returns exactly 120,000 bytes, `application/octet-stream`,
+`Cache-Control: public, max-age=31536000, immutable`. The bytes for a given `id` never change — a
+re-render gets a new `id`.
 
 One request, no `Range`. `HTTPClient::writeToStream()` already streams the body to LittleFS in
 ~1.4 KB reads, so ranged chunks would buy no RAM — they would only buy a TLS handshake per chunk,
@@ -61,7 +62,6 @@ These are behind passkey auth, not the device token, and the device never calls 
 | | |
 | --- | --- |
 | `POST /polaroid/upload` | JPEG, PNG or HEIC body. Runs the pipeline, returns `{ id, previewUrl }`. No options — one film profile, and whatever editing the uploader already did is respected. |
-| `GET /polaroid/photos` | list with preview URLs, for the manage page |
 | `POST /polaroid/remove` | body `{ id }`; deletes both objects permanently, device drops it on next sync |
 
 They require a `UserType.ADMIN` or `UserType.POLAROID_OWNER` token, and they are served from
@@ -90,7 +90,7 @@ wake
   └─ shake, or 24 h since last sync?
        ├─ no  → advance index, render, sleep          (no network at all)
        └─ yes → WiFi up
-                POST /photo {}
+                GET /photos
                 diff → { fetch, delete, keep }
                 for each fetch: POST /photo {id} → LittleFS
                 for each delete: unlink

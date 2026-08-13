@@ -6,6 +6,8 @@
 #include <WiFiClientSecure.h>
 #include <WiFiManager.h>
 
+#include <algorithm>
+
 #include "Secrets.h"
 
 using namespace config;
@@ -96,13 +98,11 @@ bool Net::fetchManifest(Manifest& out) {
     WiFiClientSecure client;
     configureClient(client);
     HTTPClient http;
-    if (!beginRequest(http, client, String(API_BASE_URL) + "/photo")) {
+    if (!beginRequest(http, client, String(API_BASE_URL) + "/photos")) {
         return false;
     }
-    http.addHeader("Content-Type", "application/json");
 
-    // No id means metadata for every photo rather than one framebuffer.
-    if (http.POST("{}") != HTTP_CODE_OK) {
+    if (http.GET() != HTTP_CODE_OK) {
         http.end();
         return false;
     }
@@ -125,6 +125,10 @@ bool Net::fetchManifest(Manifest& out) {
             out.photos.push_back(photo);
         }
     }
+
+    // The response is newest-first so the cap above keeps the newest photos.
+    // Flip to oldest-first, which is display order and the order NORMAL walks.
+    std::reverse(out.photos.begin(), out.photos.end());
     return true;
 }
 
