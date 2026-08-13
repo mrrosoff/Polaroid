@@ -199,10 +199,6 @@ constexpr uint32_t EMPTY_CHECK_INTERVAL_SECONDS = 6 * 60 * 60;
 constexpr char API_BASE_URL[] = "https://api.maxrosoff.com/polaroid";
 constexpr char PROVISION_AP_NAME[] = "Polaroid Setup";
 
-// Range-request chunk. Small enough that a photo never lands in RAM, big enough
-// that we aren't paying TLS record overhead on every write.
-constexpr uint32_t DOWNLOAD_CHUNK_BYTES = 8192;
-
 constexpr uint8_t MAX_PHOTOS = 64;
 
 constexpr char MANIFEST_PATH[] = "/manifest.json";

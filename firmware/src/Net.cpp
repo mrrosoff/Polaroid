@@ -6,8 +6,6 @@
 #include <WiFiClientSecure.h>
 #include <WiFiManager.h>
 
-#include <algorithm>
-
 #include "Secrets.h"
 
 using namespace config;
@@ -150,38 +148,23 @@ bool Net::downloadPhoto(Storage& storage, const PhotoEntry& photo) {
     WiFiClientSecure client;
     configureClient(client);
     HTTPClient http;
-    const String url = String(API_BASE_URL) + "/photo";
-    const String requestBody = String("{\"id\":\"") + photo.id.data() + "\"}";
 
-    std::uint32_t offset = 0;
-    while (offset < PANEL_BYTES) {
-        const std::uint32_t end = std::min(offset + DOWNLOAD_CHUNK_BYTES, PANEL_BYTES) - 1;
-
-        if (!beginRequest(http, client, url)) {
-            break;
-        }
+    // POWER: one request, not a chunked loop. HTTPClient::writeToStream already
+    // streams the body to the file in ~1.4 KB reads, so ranged chunks buy no
+    // RAM -- they only buy a TLS handshake per chunk, and a handshake is one to
+    // two seconds of CPU at ~40 mA.
+    if (beginRequest(http, client, String(API_BASE_URL) + "/photo")) {
         http.addHeader("Content-Type", "application/json");
-        http.addHeader("Range", "bytes=" + String(offset) + "-" + String(end));
+        const String requestBody = String("{\"id\":\"") + photo.id.data() + "\"}";
 
-        const int status = http.POST(requestBody);
-        if (status != HTTP_CODE_PARTIAL_CONTENT && status != HTTP_CODE_OK) {
-            http.end();
-            break;
+        if (http.POST(requestBody) == HTTP_CODE_OK) {
+            http.writeToStream(&file);
         }
-
-        const int written = http.writeToStream(&file);
         http.end();
-        if (written <= 0) {
-            break;
-        }
-        offset += static_cast<std::uint32_t>(written);
-
-        // A 200 means the server ignored Range and sent the whole thing.
-        if (status == HTTP_CODE_OK) {
-            break;
-        }
     }
 
+    // Size is the only thing that decides success: a truncated body, a 404 or a
+    // dropped connection all land here as a short file.
     const bool complete = file.size() == PANEL_BYTES;
     file.close();
 

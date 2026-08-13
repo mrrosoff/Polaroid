@@ -49,8 +49,11 @@ Only `fetch` costs bandwidth.
 Body `{ "id": "01HQ7X2K" }`. Returns exactly 120,000 bytes, `application/octet-stream`, `Cache-Control: public, max-age=31536000,
 immutable`. The bytes for a given `id` never change — a re-render gets a new `id`.
 
-Supports `Range` requests. The device fetches in 8 KB chunks and writes each straight to LittleFS,
-so a photo never exists in RAM and a dropped connection resumes rather than restarting.
+One request, no `Range`. `HTTPClient::writeToStream()` already streams the body to LittleFS in
+~1.4 KB reads, so ranged chunks would buy no RAM — they would only buy a TLS handshake per chunk,
+and a handshake is one to two seconds of ESP32 CPU at ~40 mA. Success is decided by the file being
+exactly 120,000 bytes; a truncated body, a 404 or a dropped connection all land as a short file and
+get retried on the next sync.
 
 ## Human endpoints
 
