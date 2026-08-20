@@ -9,3 +9,4 @@ firmware/data/manifest.json
 .env
 secrets.h
 .scratch/
+.claude/
