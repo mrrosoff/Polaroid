@@ -19,15 +19,24 @@ inline constexpr std::size_t ID_CAPACITY = 16;
 
 using IdBuffer = std::array<char, ID_CAPACITY>;
 
+// Hand-rolled loops rather than find/fill/copy_n: GCC 8's libstdc++ only made
+// those constexpr in GCC 10, and these run at compile time in the tests.
 inline constexpr std::string_view view(const IdBuffer& buffer) {
-    const auto* end = std::find(buffer.begin(), buffer.end(), '\0');
-    return {buffer.data(), static_cast<std::size_t>(end - buffer.begin())};
+    std::size_t length = 0;
+    while (length < ID_CAPACITY && buffer[length] != '\0') {
+        ++length;
+    }
+    return {buffer.data(), length};
 }
 
 inline constexpr void assign(IdBuffer& buffer, std::string_view text) {
-    buffer.fill('\0');
     const std::size_t length = std::min(text.size(), ID_CAPACITY - 1);
-    std::copy_n(text.begin(), length, buffer.begin());
+    for (std::size_t i = 0; i < length; ++i) {
+        buffer[i] = text[i];
+    }
+    for (std::size_t i = length; i < ID_CAPACITY; ++i) {
+        buffer[i] = '\0';
+    }
 }
 
 struct PhotoEntry {

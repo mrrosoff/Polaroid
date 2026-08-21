@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <array>
 #include <cstdint>
-#include <span>
+#include "Span.h"
 #include <string_view>
 
 #include "Battery.h"
@@ -56,7 +56,7 @@ void renderCurrentPhoto() {
     }
 
     std::array<char, 48> path{};
-    storage.photoPath(manifest.photos[state.photoIndex].id, path);
+    storage.photoPath(manifest.photos[state.photoIndex].idView(), path);
 
     // Scoped so the destructor cuts the panel rail on every path out of here,
     // including the early return above and anything that throws later.
