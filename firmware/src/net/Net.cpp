@@ -5,10 +5,12 @@
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <WiFiManager.h>
+#include <WiFiMulti.h>
 
 #include <algorithm>
 
 #include "Secrets.h"
+#include "system/Log.h"
 
 using namespace config;
 
@@ -44,6 +46,9 @@ Net::~Net() {
 }
 
 bool Net::hasCredentials() {
+    if (std::size(WIFI_NETWORKS) > 0) {
+        return true;
+    }
     wifi_config_t stored{};
     if (esp_wifi_get_config(WIFI_IF_STA, &stored) != ESP_OK) {
         return false;
@@ -66,8 +71,25 @@ bool Net::connect() {
     WiFi.persistent(true);
     WiFi.mode(WIFI_STA);
     WiFi.setSleep(true);
-    WiFi.begin();
 
+    if (std::size(WIFI_NETWORKS) > 0) {
+        // One scan, then the strongest known network — which is the point of
+        // listing both homes. Trying them in order instead would spend a full
+        // connect timeout on the absent one every single sync.
+        WiFiMulti multi;
+        for (const WifiNetwork& network : WIFI_NETWORKS) {
+            multi.addAP(network.ssid, network.password);
+        }
+        if (multi.run(WIFI_CONNECT_TIMEOUT_MS) == WL_CONNECTED) {
+            connected_ = true;
+            return true;
+        }
+        WiFi.disconnect(true);
+        WiFi.mode(WIFI_OFF);
+        return false;
+    }
+
+    WiFi.begin();
     const std::uint32_t start = millis();
     while (WiFi.status() != WL_CONNECTED) {
         if (millis() - start > WIFI_CONNECT_TIMEOUT_MS) {
@@ -148,6 +170,7 @@ bool Net::downloadPhoto(Storage& storage, const PhotoEntry& photo) {
 
     File file = storage.fs().open(tempPath, FILE_WRITE);
     if (!file) {
+        logf("  cannot open %s for write - filesystem not usable", tempPath);
         return false;
     }
 
@@ -161,6 +184,11 @@ bool Net::downloadPhoto(Storage& storage, const PhotoEntry& photo) {
     // two seconds of CPU at ~40 mA.
     if (beginRequest(http, client, String(API_BASE_URL) + "/photo")) {
         http.addHeader("Content-Type", "application/json");
+        // API Gateway only honours the Lambda's isBase64Encoded when the
+        // request's Accept matches one of the API's binaryMediaTypes. Without
+        // this header the framebuffer arrives as 160,000 base64 characters
+        // instead of 120,000 bytes, and every download fails the size check.
+        http.addHeader("Accept", "application/octet-stream");
         const String requestBody = String("{\"id\":\"") + photo.id.data() + "\"}";
 
         if (http.POST(requestBody) == HTTP_CODE_OK) {
@@ -172,6 +200,10 @@ bool Net::downloadPhoto(Storage& storage, const PhotoEntry& photo) {
     // Size is the only thing that decides success: a truncated body, a 404 or a
     // dropped connection all land here as a short file.
     const bool complete = file.size() == PANEL_BYTES;
+    if (!complete) {
+        logf("  short file: %u bytes, expected %u", static_cast<unsigned>(file.size()),
+             static_cast<unsigned>(PANEL_BYTES));
+    }
     file.close();
 
     if (!complete) {
@@ -195,6 +227,8 @@ SyncResult Net::sync(Storage& storage) {
     }
 
     const ManifestDiff diff = diffManifests(local, remote);
+    logf("  remote %u photos, local %u, %u to fetch, %u to drop", remote.size(), local.size(),
+         static_cast<unsigned>(diff.fetch.size()), static_cast<unsigned>(diff.remove.size()));
 
     // Deletes first: on a nearly-full filesystem the space freed here is what
     // makes room for the fetches, and swapping photos out is the common case
@@ -229,6 +263,8 @@ SyncResult Net::sync(Storage& storage) {
         if (downloadPhoto(storage, photo)) {
             committed.photos.push_back(photo);
             result.fetched++;
+        } else {
+            logf("  download failed for %s", photo.id.data());
         }
     }
 

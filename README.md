@@ -32,7 +32,7 @@ Pull a rendered framebuffer down to flash by hand:
 ```bash
 curl -H "Authorization: Bearer $POLAROID_DEVICE_TOKEN" \
      -H "Content-Type: application/json" \
-     -d '{"id":"<an id from /manifest>"}' \
+     -d '{"id":"<an id from /photos>"}' \
      https://api.maxrosoff.com/polaroid/photo > firmware/data/p/test.bin
 ```
 
@@ -56,7 +56,7 @@ cd ../../Personal-Website && npm test                            # 70
 | Mode | Trigger | What happens |
 | --- | --- | --- |
 | `NORMAL` | hourly timer | advance to next local framebuffer, push to panel, sleep. No network. |
-| `SYNC` | **shake**, or once a day | WiFi up, diff against `/manifest`, download only what changed, show the newest photo, WiFi down, sleep |
+| `SYNC` | **shake**, or once a day | WiFi up, diff against `/photos`, download only what changed, show the newest photo, WiFi down, sleep |
 | `PROVISION` | no saved credentials | captive-portal AP so the couple can pick their WiFi from a phone |
 
 A shake is picked out in the LIS3DH's own hardware: several direction reversals per second fire the

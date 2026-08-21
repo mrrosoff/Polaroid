@@ -14,6 +14,40 @@ SPIClass panelSpi(FSPI);
 
 void writePin(int pin, bool level) { digitalWrite(pin, level ? HIGH : LOW); }
 
+// The panel's power-on sequence, transcribed from Waveshare's EPD_4in0e
+// driver. It is vendor data, not logic: every value is a magic number from
+// their reference and none of it is ours to reason about, so it reads better
+// as a table than as forty calls.
+struct InitCommand {
+    std::uint8_t command;
+    std::span<const std::uint8_t> data;
+};
+
+constexpr std::uint8_t CMDH[] = {0x49, 0x55, 0x20, 0x08, 0x09, 0x18};
+constexpr std::uint8_t PWR[] = {0x3F};
+constexpr std::uint8_t PSR[] = {0x5F, 0x69};
+constexpr std::uint8_t POFS[] = {0x40, 0x1F, 0x1F, 0x2C};
+constexpr std::uint8_t BTST2[] = {0x6F, 0x1F, 0x1F, 0x22};
+constexpr std::uint8_t BTST3[] = {0x6F, 0x1F, 0x17, 0x17};
+constexpr std::uint8_t BTST1[] = {0x00, 0x54, 0x00, 0x44};
+constexpr std::uint8_t TSE[] = {0x02, 0x00};
+constexpr std::uint8_t PLL[] = {0x08};
+constexpr std::uint8_t CDI[] = {0x3F};
+
+// Resolution: 0x0190 x 0x0258 = 400 x 600.
+static_assert(PANEL_WIDTH == 0x0190 && PANEL_HEIGHT == 0x0258,
+              "TRES below must match Config.h");
+constexpr std::uint8_t TRES[] = {0x01, 0x90, 0x02, 0x58};
+
+constexpr std::uint8_t PWS[] = {0x2F};
+constexpr std::uint8_t AN_TM[] = {0x01};
+
+constexpr InitCommand INIT_SEQUENCE[] = {
+    {0xAA, CMDH}, {0x01, PWR}, {0x00, PSR},  {0x05, POFS}, {0x08, BTST2}, {0x06, BTST3},
+    {0x03, BTST1}, {0x60, TSE}, {0x30, PLL}, {0x50, CDI},  {0x61, TRES},  {0xE3, PWS},
+    {0x84, AN_TM},
+};
+
 }  // namespace
 
 Panel::~Panel() { powerDown(); }
@@ -38,47 +72,15 @@ bool Panel::begin() {
     }
     delay(30);
 
-    sendCommand(0xAA);
-    sendData({0x49, 0x55, 0x20, 0x08, 0x09, 0x18});
-
-    sendCommand(0x01);
-    sendData(0x3F);
-
-    sendCommand(0x00);
-    sendData({0x5F, 0x69});
-
-    sendCommand(0x05);
-    sendData({0x40, 0x1F, 0x1F, 0x2C});
-
-    sendCommand(0x08);
-    sendData({0x6F, 0x1F, 0x1F, 0x22});
-
-    sendCommand(0x06);
-    sendData({0x6F, 0x1F, 0x17, 0x17});
-
-    sendCommand(0x03);
-    sendData({0x00, 0x54, 0x00, 0x44});
-
-    sendCommand(0x60);
-    sendData({0x02, 0x00});
-
-    sendCommand(0x30);
-    sendData(0x08);
-
-    sendCommand(0x50);
-    sendData(0x3F);
-
-    // Resolution: 0x0190 x 0x0258 = 400 x 600.
-    static_assert(PANEL_WIDTH == 0x0190 && PANEL_HEIGHT == 0x0258,
-                  "resolution command below must match Config.h");
-    sendCommand(0x61);
-    sendData({0x01, 0x90, 0x02, 0x58});
-
-    sendCommand(0xE3);
-    sendData(0x2F);
-
-    sendCommand(0x84);
-    sendData(0x01);
+    // Per-byte, not sendDataBulk: the bulk path holds CS low across the whole
+    // burst, and the init sequence is framed one byte at a time like the
+    // vendor driver does it.
+    for (const InitCommand& step : INIT_SEQUENCE) {
+        sendCommand(step.command);
+        for (std::uint8_t byte : step.data) {
+            sendData(byte);
+        }
+    }
 
     initialized_ = waitUntilIdle();
     return initialized_;

@@ -6,7 +6,7 @@
 
 #include "Config.h"
 #include "Manifest.h"
-#include "Storage.h"
+#include "drivers/Storage.h"
 
 namespace polaroid {
 

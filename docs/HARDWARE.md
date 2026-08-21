@@ -19,7 +19,7 @@
 | Part | Why this one | Link |
 | --- | --- | --- |
 | **Lithium Ion Battery 3.7 V 2000 mAh** (#2011) | 60 × 36 × **7 mm**, JST-PH, protection built in. The 7 mm is the point — it is the single biggest term in the finished thickness. | [adafruit.com/product/2011](https://www.adafruit.com/product/2011) |
-| **LIS3DH triple-axis accelerometer breakout** (#2809) | The library, the click detector, and `INT1` are all first-class. 25 × 19 mm. | [adafruit.com/product/2809](https://www.adafruit.com/product/2809) |
+| **LIS3DH triple-axis accelerometer breakout** (#2809) | The library and `INT1` are both first-class. 25 × 19 mm. | [adafruit.com/product/2809](https://www.adafruit.com/product/2809) |
 
 **And direct from Seeed, 2-day:**
 

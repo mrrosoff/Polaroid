@@ -1,5 +1,7 @@
 #include "Storage.h"
 
+#include "system/Log.h"
+
 #include <ArduinoJson.h>
 
 using namespace config;
@@ -7,12 +9,28 @@ using namespace config;
 namespace polaroid {
 
 bool Storage::begin() {
-    mounted_ = LittleFS.begin(true);
-    if (mounted_ && !LittleFS.exists(PHOTO_DIR)) {
+    mounted_ = LittleFS.begin(true, "/littlefs", 10, "littlefs");
+
+    // format-on-fail does not cover a partition that mounts as corrupt rather
+    // than as blank — which is what unformatted flash looks like on a new
+    // board. Format once, explicitly, and try again.
+    if (!mounted_) {
+        logf("filesystem will not mount; formatting");
+        if (LittleFS.format()) {
+            mounted_ = LittleFS.begin(false, "/littlefs", 10, "littlefs");
+        }
+    }
+
+    if (!mounted_) {
+        return false;
+    }
+
+    if (!LittleFS.exists(PHOTO_DIR)) {
         LittleFS.mkdir(PHOTO_DIR);
     }
-    return mounted_;
+    return true;
 }
+
 
 void Storage::photoPath(std::string_view id, std::span<char> out) const {
     snprintf(out.data(), out.size(), "%s/%.*s.bin", PHOTO_DIR, static_cast<int>(id.size()),

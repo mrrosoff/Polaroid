@@ -11,7 +11,7 @@
 #include <cstdint>
 
 #include "Config.h"
-#include "Motion.h"
+#include "drivers/Motion.h"
 
 namespace {
 

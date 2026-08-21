@@ -14,10 +14,10 @@
 
 #include <cstdint>
 
-#include "Battery.h"
+#include "drivers/Battery.h"
 #include "Config.h"
 #include "Overlay.h"
-#include "Panel.h"
+#include "drivers/Panel.h"
 #include <span>
 
 namespace {
@@ -138,6 +138,62 @@ bool i2cLinesIdle() {
 // The divider is 2 x 1 MΩ off B+, so the ADC sees half the cell. An
 // unconnected D0 floats and reads near zero, which is the failure this
 // distinguishes from a genuinely flat battery.
+// The divider reads correct on a meter but the configured pin sees nothing, so
+// find out which pin it actually landed on. ADC1 is GPIO1-10; everything else
+// on this board is a digital signal that should read near 0 or 3.3 V, not a
+// half-cell voltage.
+void scanAdcPins() {
+    Serial.println("      scanning ADC1 for the divider:");
+    for (int pin = 1; pin <= 10; ++pin) {
+        pinMode(pin, INPUT);
+        delay(5);
+        const int mv = analogReadMilliVolts(pin);
+        const char* note = "";
+        if (pin == config::PIN_VBAT_SENSE) {
+            note = "  <- PIN_VBAT_SENSE";
+        } else if (mv > 1200 && mv < 2400) {
+            note = "  <- looks like a half-cell divider";
+        }
+        Serial.printf("      GPIO%-2d  %4d mV%s\n", pin, mv, note);
+    }
+}
+
+// Charge the pin, let go, and see where it lands. A pin tied to the divider is
+// dragged back to the midpoint through 500k in microseconds; a floating pin has
+// only leakage to move it and holds the charge for many milliseconds. So if
+// both directions settle to the same voltage the wire is connected, and if they
+// stay where they were pushed it is not. No meter, no watching required.
+bool senseWireIsConnected() {
+    pinMode(config::PIN_VBAT_SENSE, OUTPUT);
+    digitalWrite(config::PIN_VBAT_SENSE, LOW);
+    delay(5);
+    pinMode(config::PIN_VBAT_SENSE, INPUT);
+    delay(20);
+    const int afterLow = analogReadMilliVolts(config::PIN_VBAT_SENSE);
+
+    pinMode(config::PIN_VBAT_SENSE, OUTPUT);
+    digitalWrite(config::PIN_VBAT_SENSE, HIGH);
+    delay(5);
+    pinMode(config::PIN_VBAT_SENSE, INPUT);
+    delay(20);
+    const int afterHigh = analogReadMilliVolts(config::PIN_VBAT_SENSE);
+
+    Serial.printf("      released from LOW: %d mV, from HIGH: %d mV\n", afterLow, afterHigh);
+
+    const int spread = afterHigh - afterLow;
+    if (spread < 300) {
+        Serial.printf("ok    both settle to ~%d mV - the wire IS on GPIO%d\n",
+                      (afterLow + afterHigh) / 2, config::PIN_VBAT_SENSE);
+        return true;
+    }
+
+    Serial.println("FAIL  the pin keeps whatever charge it was given, so nothing is");
+    Serial.printf("      pulling it anywhere: the junction is NOT reaching GPIO%d.\n",
+                  config::PIN_VBAT_SENSE);
+    Serial.println("      The divider itself is fine - it is the wire to the pad.");
+    return false;
+}
+
 void probeBattery() {
     const polaroid::BatteryReading reading = polaroid::readBattery();
     const float atPin = reading.volts / config::VBAT_DIVIDER_RATIO;
@@ -146,12 +202,42 @@ void probeBattery() {
                   config::PIN_VBAT_SENSE, reading.percent, reading.low ? " LOW" : "",
                   reading.critical ? " CRITICAL" : "");
 
-    if (reading.volts < 1.0f) {
-        Serial.println("FAIL  reads near zero - D0 is floating or the divider is not landed");
-    } else if (reading.volts > 4.4f) {
-        Serial.println("FAIL  reads above a full cell - is D0 on B+ directly, without R1?");
-    } else {
+    if (reading.volts >= 1.0f && reading.volts <= 4.4f) {
         Serial.println("ok    in range; meter B+ and correct VBAT_ADC_CALIBRATION if it differs");
+        return;
+    }
+
+    // Only worth the noise when the reading is wrong. A high-value divider is
+    // invisible to a meter on the midpoint — connected or not, it reads the
+    // same — so these two are what actually localise the fault.
+    if (!senseWireIsConnected()) {
+        return;
+    }
+    scanAdcPins();
+
+    if (reading.volts < 1.0f) {
+        // Distinguish a missing cell from a missing divider. With the internal
+        // pull-up (~45k) enabled, R2's 1M to ground drags the pin to about
+        // 3.16 V; a pin with nothing attached sits at the full 3.3 V. That
+        // says whether the resistors are landed, whatever the cell is doing.
+        pinMode(config::PIN_VBAT_SENSE, INPUT_PULLUP);
+        delay(20);
+        const int pulledMv = analogReadMilliVolts(config::PIN_VBAT_SENSE);
+        pinMode(config::PIN_VBAT_SENSE, INPUT);
+        delay(20);
+
+        Serial.printf("      with pull-up: %d mV\n", pulledMv);
+        if (pulledMv > 3250) {
+            Serial.println("FAIL  pin floats to rail - nothing is attached to D0 at all");
+            Serial.println("      the divider midpoint is not reaching the pin");
+        } else if (pulledMv > 2500) {
+            Serial.println("ok    divider is landed (R2 pulls the pin below the rail)");
+            Serial.println("FAIL  but no cell voltage - check B+ to GND with a meter");
+        } else {
+            Serial.println("FAIL  pin is held low - R2 may be shorted, or D0 is on GND");
+        }
+    } else {
+        Serial.println("FAIL  reads above a full cell - is D0 on B+ directly, without R1?");
     }
 }
 

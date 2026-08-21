@@ -1,22 +1,25 @@
 #include <Arduino.h>
 #include <esp_timer.h>
 
+#include <cstdarg>
+
 #include <algorithm>
 #include <array>
 #include <cstdint>
 #include <span>
 #include <string_view>
 
-#include "Battery.h"
+#include "drivers/Battery.h"
 #include "Config.h"
 #include "Manifest.h"
-#include "Motion.h"
-#include "Net.h"
+#include "drivers/Motion.h"
+#include "net/Net.h"
 #include "Overlay.h"
-#include "Panel.h"
-#include "State.h"
+#include "drivers/Panel.h"
+#include "system/Log.h"
+#include "system/State.h"
 #include "StatusCard.h"
-#include "Storage.h"
+#include "drivers/Storage.h"
 
 using namespace config;
 using namespace polaroid;
@@ -78,8 +81,15 @@ Mode decideMode(WakeReason reason, MotionEvent event) {
             return Mode::Sync;
         }
         // An unclassified interrupt is a spurious wake. Go straight back to
-        // sleep without spending a 30 s refresh on it.
+        // sleep without spending a refresh on it.
         return Mode::Normal;
+    }
+
+    // A cold boot has an empty flash and a zeroed secondsSinceSync, so the
+    // interval check below would say "synced recently" and wait a full day
+    // before fetching anything. Nothing to show is reason enough to sync.
+    if (reason == WakeReason::ColdBoot) {
+        return Mode::Sync;
     }
 
     if (rtcState().secondsSinceSync >= syncInterval(rtcState().syncFailures)) {
@@ -108,7 +118,7 @@ void runSync(bool triggeredByShake) {
     SyncResult result;
 
     {
-        // Scoped so the radio is torn down before anything below spends 30 s
+        // Scoped so the radio is torn down before anything below spends 20 s
         // pushing pixels. Overlapping WiFi with a panel refresh would put the
         // two biggest current draws in the design on top of each other.
         Net net;
@@ -120,6 +130,7 @@ void runSync(bool triggeredByShake) {
     RtcState& state = rtcState();
 
     if (!result.ok) {
+        logf("sync failed (%u in a row)", state.syncFailures + 1);
         // POWER: count the failure and back off. Retrying hourly through a
         // router outage costs 24 connect timeouts a day, which is more than the
         // entire rest of the budget. secondsSinceSync is reset either way so it
@@ -134,6 +145,7 @@ void runSync(bool triggeredByShake) {
 
     state.syncFailures = 0;
     showOfflineIcon = false;
+    logf("sync ok: %u fetched, %u removed", result.fetched, result.removed);
 
     storage.loadManifest(manifest);
     state.photoCount = manifest.size();
@@ -149,10 +161,44 @@ void runSync(bool triggeredByShake) {
     state.photoIndex = newestIndex(manifest);
 }
 
+// Every exit from setup() runs this. Clearing the latches is not optional:
+// ext0 is level-triggered, so an asserted INT1 wakes us the instant we sleep.
+[[noreturn]] void powerDownAndSleep(uint32_t seconds) {
+    motion.armForSleep();
+    motion.powerDown();
+
+#ifdef POLAROID_BRINGUP
+    // Deep sleep drops USB, so a device that sleeps the moment it is done can
+    // only be reflashed by holding BOOT through a reset. Hold the bus open for
+    // a while first: `pio run -t upload` inside this window needs no buttons.
+    // Bench builds only — this is a wake-second per cycle, which is exactly
+    // what the battery budget cannot afford.
+    logf("holding awake %u s for flashing (bringup build)", BRINGUP_HOLD_SECONDS);
+    for (std::uint32_t i = 0; i < BRINGUP_HOLD_SECONDS; ++i) {
+        delay(1000);
+    }
+    logf("sleeping");
+#endif
+
+    sleepUntilNextEvent(seconds);
+}
+
 }  // namespace
 
 void setup() {
     Serial.begin(115200);
+
+#ifdef POLAROID_BRINGUP
+    // USB CDC takes about a second to enumerate and for the host to raise DTR,
+    // and setup() is otherwise finished before that happens — so every logf()
+    // below is suppressed and a bring-up run looks silent. Only in the bringup
+    // build: on battery there is no host and this would be a second of wasted
+    // wake on every single refresh.
+    for (std::uint32_t waited = 0; !Serial && waited < 2000; waited += 50) {
+        delay(50);
+    }
+    delay(200);
+#endif
 
     if (!rtcStateValid()) {
         resetRtcState();
@@ -161,27 +207,36 @@ void setup() {
     state.bootCount++;
 
     WakeReason reason = wakeReason();
+    logf("boot %lu, wake=%s", static_cast<unsigned long>(state.bootCount),
+         reason == WakeReason::Motion  ? "motion"
+         : reason == WakeReason::Timer ? "timer"
+                                       : "cold");
     if (reason == WakeReason::Timer) {
         state.secondsSinceSync += REFRESH_INTERVAL_SECONDS;
     }
 
     if (!storage.begin()) {
+        logf("FATAL: no filesystem; sleeping");
         // Nothing to render and nothing to fix at runtime. Sleep rather than
         // spin — the panel keeps whatever it was already showing.
         sleepUntilNextEvent(REFRESH_INTERVAL_SECONDS);
     }
     storage.loadManifest(manifest);
     state.photoCount = manifest.size();
+    logf("filesystem mounted, %u photos on flash", state.photoCount);
 
-    const bool haveAccelerometer = motion.begin();
-    (void)haveAccelerometer;
-    MotionEvent event =
+    // A missing accelerometer is survivable: the timer still rotates photos and
+    // classifyWakeEvent reports None, so every wake looks like a timer wake.
+    motion.begin();
+    const MotionEvent event =
         reason == WakeReason::Motion ? motion.classifyWakeEvent() : MotionEvent::None;
 
     // Read before anything draws. The rail sags under a 45 mA refresh, so a
     // reading taken afterwards reports a battery several percent emptier than
     // it is and would trip the critical threshold early.
     battery = readBattery();
+    logf("battery %.2f V, %u%%%s", battery.volts, battery.percent,
+         battery.critical ? " CRITICAL" : battery.low ? " low" : "");
     showLowBatteryIcon = battery.low;
     state.lowBattery = battery.low ? 1 : 0;
 
@@ -208,17 +263,16 @@ void setup() {
                 state.emptyCardDrawn = 1;
             }
         }
-        motion.armForSleep();
-        motion.powerDown();
-        sleepUntilNextEvent(EMPTY_CHECK_INTERVAL_SECONDS);
+        powerDownAndSleep(EMPTY_CHECK_INTERVAL_SECONDS);
     }
 
     Mode mode = decideMode(reason, event);
+    logf("mode=%s", mode == Mode::Sync        ? "sync"
+                    : mode == Mode::Provision ? "provision"
+                                              : "normal");
 
     if (reason == WakeReason::Motion && motionTooSoon()) {
-        motion.armForSleep();
-        motion.powerDown();
-        sleepUntilNextEvent(REFRESH_INTERVAL_SECONDS);
+        powerDownAndSleep(REFRESH_INTERVAL_SECONDS);
     }
 
     switch (mode) {
@@ -246,9 +300,7 @@ void setup() {
             break;
     }
 
-    motion.armForSleep();
-    motion.powerDown();
-    sleepUntilNextEvent(REFRESH_INTERVAL_SECONDS);
+    powerDownAndSleep(REFRESH_INTERVAL_SECONDS);
 }
 
 // POWER: intentionally empty and never reached. setup() always ends in
