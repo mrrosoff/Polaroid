@@ -455,7 +455,7 @@ void test_offline_overlay_draws_a_slash() {
 // old file. If MAX_PHOTOS filled the filesystem exactly, that staging write
 // would fail and the device could never replace a photo once full.
 void test_photo_limit_leaves_room_to_stage_a_download() {
-    constexpr std::uint32_t LITTLEFS_BYTES = 0x620000;  // partitions_8mb.csv
+    constexpr std::uint32_t LITTLEFS_BYTES = 0x620000;  // partitions.csv
     constexpr std::uint32_t used = static_cast<std::uint32_t>(MAX_PHOTOS) * PANEL_BYTES;
 
     TEST_ASSERT_TRUE(used < LITTLEFS_BYTES);

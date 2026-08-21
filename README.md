@@ -27,42 +27,47 @@ goes back to sleep.
 
 ## Quick start
 
-Pull a rendered framebuffer down to flash by hand:
+Pull a rendered framebuffer by hand. `Accept` is not optional: without it API Gateway hands back
+base64 text instead of the 120,000 bytes.
 
 ```bash
 curl -H "Authorization: Bearer $POLAROID_DEVICE_TOKEN" \
      -H "Content-Type: application/json" \
+     -H "Accept: application/octet-stream" \
      -d '{"id":"<an id from /photos>"}' \
-     https://api.maxrosoff.com/polaroid/photo > firmware/data/p/test.bin
+     https://api.maxrosoff.com/polaroid/photo > frame.bin
 ```
 
 Build and flash the firmware:
 
 ```bash
 cd firmware
-pio run -t upload        # default env is polaroid-xiao
-pio run -t uploadfs      # pushes data/ (framebuffers + manifest) to LittleFS
+pio run -t upload        # the shipping firmware
+pio run -e bringup -t upload   # same, plus serial logging, and never sleeps
 ```
 
 Run the tests:
 
 ```bash
-cd firmware               && pio test -e native -e native-xiao   # 72, no hardware needed
-cd ../../Personal-Website && npm test                            # 70
+cd firmware && pio test -e native   # 46, no hardware needed
 ```
+
+The image pipeline in Personal-Website has no tests yet: `npm test` finds no files.
 
 ## Modes
 
 | Mode | Trigger | What happens |
 | --- | --- | --- |
 | `NORMAL` | hourly timer | advance to next local framebuffer, push to panel, sleep. No network. |
-| `SYNC` | **shake**, or once a day | WiFi up, diff against `/photos`, download only what changed, show the newest photo, WiFi down, sleep |
-| `PROVISION` | no saved credentials | captive-portal AP so the couple can pick their WiFi from a phone |
+| `SYNC` | **shake**, cold boot, or once a day | WiFi up, diff against `/photos`, download only what changed, show the newest photo, WiFi down, sleep |
+| `PROVISION` | no networks in `Secrets.h` and none saved | captive-portal AP so the couple can pick their WiFi from a phone |
 
-A shake is picked out in the LIS3DH's own hardware: several direction reversals per second fire the
-**click** detector, where a single knock or door swing only trips the lower **activity** threshold.
-On wake the firmware reads `CLICK_SRC` and `INT1_SRC` to tell the two apart, and treats anything
-that isn't a shake as a spurious wake.
+Shake detection is the LIS3DH's own activity threshold, high-pass filtered so gravity does not hold
+it tripped at whatever angle the frame hangs. Anything that clears the threshold syncs; the
+interrupt is latched, and reading `INT1_SRC` on wake is what releases it.
+
+Networks are normally listed in `firmware/include/Secrets.h`, which is gitignored, and the strongest
+one in range wins. The portal is what happens when that list is empty.
 
 ## Panel
 

@@ -46,8 +46,6 @@ constexpr uint32_t EPD_BUSY_TIMEOUT_MS = 40'000;
 //   the battery divider must be on ADC1 (GPIO1-10), the ADC that still
 //   works while WiFi is up
 
-#if defined(POLAROID_BOARD_XIAO)
-
 // Seeed XIAO ESP32S3. Exactly eleven GPIO broken out and this design needs
 // exactly eleven, so there is no slack — D6/D7 are GPIO43/44, which are
 // outside the RTC domain and have no ADC, so they get the two signals that
@@ -67,32 +65,9 @@ constexpr int PIN_ACCEL_INT1 = 2;  // D1, RTC-capable
 constexpr int PIN_VBAT_SENSE = 1;  // D0, ADC1_CH0
 
 // Nothing left over. The XIAO's remaining pads are the USB differential pair
-// and the internal flash/PSRAM bus, which must not be touched.
+// and the internal flash/PSRAM bus, which must not be touched. Kept so the
+// sleep path can iterate it without a special case.
 constexpr std::array<int, 0> UNUSED_PINS{};
-
-#else
-
-// Generic ESP32-S3 SuperMini.
-constexpr int PIN_EPD_SCK = 12;
-constexpr int PIN_EPD_MOSI = 11;
-constexpr int PIN_EPD_CS = 10;
-constexpr int PIN_EPD_DC = 9;
-constexpr int PIN_EPD_RST = 8;
-constexpr int PIN_EPD_BUSY = 7;
-constexpr int PIN_EPD_PWR = 6;
-
-constexpr int PIN_I2C_SCL = 4;
-constexpr int PIN_I2C_SDA = 5;
-constexpr int PIN_ACCEL_INT1 = 3;
-
-constexpr int PIN_VBAT_SENSE = 2;  // ADC1_CH1
-
-// Broken out, unused, and floating. Pulled explicitly before sleep — a
-// floating CMOS input oscillates and the current it burns is nearly impossible
-// to find with a meter after the fact.
-constexpr std::array UNUSED_PINS{13, 14, 21, 33, 34, 35, 36, 37, 38};
-
-#endif
 
 // POWER: PIN_EPD_PWR gates the panel driver board's rail. See docs/POWER.md —
 // it is worth about 30 µA, which is a third of the sleep budget.

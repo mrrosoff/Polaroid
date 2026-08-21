@@ -1,8 +1,0 @@
-# Recommended. See docs/HARDWARE.md — 16 MB of flash is what makes "the whole
-# album lives on the device" true rather than aspirational.
-# Name,   Type, SubType, Offset,  Size,     Flags
-nvs,      data, nvs,     0x9000,  0x5000,
-otadata,  data, ota,     0xe000,  0x2000,
-app0,     app,  factory, 0x10000, 0x1D0000,
-littlefs, data, spiffs,  0x1E0000,0xE20000,
-# 0xE20000 = 14,811,136 B -> 123 framebuffers.

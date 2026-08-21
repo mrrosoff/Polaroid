@@ -27,10 +27,11 @@ class Net {
     Net(const Net&) = delete;
     Net& operator=(const Net&) = delete;
 
-    // True if credentials are stored. Cheap — reads NVS, no radio.
+    // True when Secrets.h lists networks, or NVS holds a provisioned one.
     [[nodiscard]] static bool hasCredentials();
 
-    // Captive portal. Blocks until the couple finishes or PROVISION_TIMEOUT_MS.
+    // Fallback for an empty WIFI_NETWORKS. Blocks until the couple finishes
+    // or PROVISION_TIMEOUT_MS.
     [[nodiscard]] static bool runProvisioningPortal();
 
     [[nodiscard]] bool connect();
@@ -39,8 +40,7 @@ class Net {
     [[nodiscard]] bool fetchManifest(Manifest& out);
     [[nodiscard]] bool downloadPhoto(Storage& storage, const PhotoEntry& photo);
 
-    // The whole of SYNC mode: manifest, diff, fetch, delete, save. Every
-    // failure path leaves local storage exactly as it was.
+    // Every failure path leaves local storage exactly as it was.
     SyncResult sync(Storage& storage);
 
   private:

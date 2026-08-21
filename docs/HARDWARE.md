@@ -25,7 +25,7 @@
 
 | Part | Why | Link |
 | --- | --- | --- |
-| **XIAO ESP32S3** | The board this is built around. 8 MB flash (50 photos), onboard LiPo charging, 21 × 17.5 mm, and a deep-sleep floor Seeed actually specifies. Build `-e polaroid-xiao`. | [seeedstudio.com](https://www.seeedstudio.com/XIAO-ESP32S3-p-5627.html) |
+| **XIAO ESP32S3** | The board this is built around. 8 MB flash (50 photos), onboard LiPo charging, 21 × 17.5 mm, and a deep-sleep floor Seeed actually specifies. | [seeedstudio.com](https://www.seeedstudio.com/XIAO-ESP32S3-p-5627.html) |
 
 Not the 2500 mAh (#328), even though it's barely more expensive. It's 50 × 60 mm and 7.3 mm thick —
 500 mAh more (about two extra weeks on a five-month budget) in exchange for 40% more area in a case
@@ -165,7 +165,7 @@ Nothing here is padding. There's no MISO because the panel is write-only. There'
 select because there's one SPI device. The accelerometer is on I²C rather than SPI precisely because
 SPI would have cost another two pins.
 
-Two tests in `pio test -e native-xiao` assert that no pin is used twice, that `INT1` is inside the
+Two tests in `pio test -e native` assert that no pin is used twice, that `INT1` is inside the
 RTC domain, and that battery sense is on ADC1 — so a mistake in this table fails on your laptop
 rather than on a headerless board glued behind a panel.
 
@@ -202,13 +202,8 @@ entirely. This is a supported use of that pin, not a hack.
 ## Flash capacity
 
 Each framebuffer is exactly 120,000 bytes and they don't compress — dithered noise is
-incompressible by construction. With the no-OTA partition tables in `firmware/`:
-
-| Board | LittleFS | Fits | Cap | Env |
-| --- | --- | ---: | ---: | --- |
-| **XIAO ESP32S3, 8 MB** | 6.4 MB | 53 | **50** | `polaroid-xiao` ← default |
-| SuperMini, 4 MB | 2.1 MB | 17 | 50 | `polaroid` |
-| SuperMini N16R8, 16 MB | 14.8 MB | 123 | 50 | `polaroid-16mb` |
+incompressible by construction. With the no-OTA partition table in `firmware/partitions.csv`, the
+XIAO's 8 MB leaves **6.4 MB** of LittleFS, which fits 53 frames.
 
 The cap is 50, not the 53 that fit. `downloadPhoto` stages a full 120,000-byte temp file before
 renaming it over the old one, so a device holding 53 has 62,528 bytes free — half a frame — and can

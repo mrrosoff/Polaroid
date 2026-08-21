@@ -1,8 +1,0 @@
-# No OTA. This device is flashed over USB by one person, once, and every byte
-# spent on a second app slot is a photo we can't store.
-# Name,   Type, SubType, Offset,  Size,     Flags
-nvs,      data, nvs,     0x9000,  0x5000,
-otadata,  data, ota,     0xe000,  0x2000,
-app0,     app,  factory, 0x10000, 0x1D0000,
-littlefs, data, spiffs,  0x1E0000,0x210000,
-# 0x210000 = 2,162,688 B -> 16 framebuffers at 120,000 B, with room for the manifest.
