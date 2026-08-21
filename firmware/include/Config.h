@@ -39,10 +39,6 @@ constexpr uint32_t EPD_SPI_HZ = 20'000'000;
 // spin on the pin until the battery is gone.
 constexpr uint32_t EPD_BUSY_TIMEOUT_MS = 40'000;
 
-// Bench only: how long a POLAROID_BRINGUP build stays awake before sleeping,
-// so it can be reflashed over USB without the BOOT-and-reset dance.
-constexpr uint32_t BRINGUP_HOLD_SECONDS = 25;
-
 // ---------------------------------------------------------------- pins
 
 // Two constraints drive every assignment here:

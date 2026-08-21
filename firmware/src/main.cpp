@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <esp_system.h>
 #include <esp_timer.h>
 
 #include <cstdarg>
@@ -168,16 +169,24 @@ void runSync(bool triggeredByShake) {
     motion.powerDown();
 
 #ifdef POLAROID_BRINGUP
-    // Deep sleep drops USB, so a device that sleeps the moment it is done can
-    // only be reflashed by holding BOOT through a reset. Hold the bus open for
-    // a while first: `pio run -t upload` inside this window needs no buttons.
-    // Bench builds only — this is a wake-second per cycle, which is exactly
-    // what the battery budget cannot afford.
-    logf("holding awake %u s for flashing (bringup build)", BRINGUP_HOLD_SECONDS);
-    for (std::uint32_t i = 0; i < BRINGUP_HOLD_SECONDS; ++i) {
-        delay(1000);
+    // Dev build: never deep sleep. Sleep drops USB, which takes away both the
+    // serial log and the ability to flash without holding BOOT through a
+    // reset. Idling here keeps the bus up indefinitely; a shake restarts the
+    // device, which runs the whole cycle again and is as close to a real wake
+    // as this build gets. Compiled out of polaroid-xiao, where staying awake
+    // would empty the battery in a day.
+    logf("dev build: staying awake. shake to run another cycle.");
+    for (std::uint32_t tick = 0;; ++tick) {
+        if (digitalRead(PIN_ACCEL_INT1) == HIGH) {
+            logf("motion - restarting");
+            delay(200);
+            esp_restart();
+        }
+        if (tick % 300 == 299) {
+            logf("idle");
+        }
+        delay(100);
     }
-    logf("sleeping");
 #endif
 
     sleepUntilNextEvent(seconds);

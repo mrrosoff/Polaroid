@@ -182,7 +182,9 @@ bool Net::downloadPhoto(Storage& storage, const PhotoEntry& photo) {
     // streams the body to the file in ~1.4 KB reads, so ranged chunks buy no
     // RAM -- they only buy a TLS handshake per chunk, and a handshake is one to
     // two seconds of CPU at ~40 mA.
-    if (beginRequest(http, client, String(API_BASE_URL) + "/photo")) {
+    if (!beginRequest(http, client, String(API_BASE_URL) + "/photo")) {
+        logf("  beginRequest failed");
+    } else {
         http.addHeader("Content-Type", "application/json");
         // API Gateway only honours the Lambda's isBase64Encoded when the
         // request's Accept matches one of the API's binaryMediaTypes. Without
@@ -191,20 +193,31 @@ bool Net::downloadPhoto(Storage& storage, const PhotoEntry& photo) {
         http.addHeader("Accept", "application/octet-stream");
         const String requestBody = String("{\"id\":\"") + photo.id.data() + "\"}";
 
-        if (http.POST(requestBody) == HTTP_CODE_OK) {
-            http.writeToStream(&file);
+        const int status = http.POST(requestBody);
+        if (status == HTTP_CODE_OK) {
+            const int written = http.writeToStream(&file);
+            logf("  HTTP 200, content-length %d, wrote %d", http.getSize(), written);
+        } else {
+            logf("  HTTP %d: %s", status, http.errorToString(status).c_str());
         }
         http.end();
     }
 
+    file.close();
+
     // Size is the only thing that decides success: a truncated body, a 404 or a
-    // dropped connection all land here as a short file.
-    const bool complete = file.size() == PANEL_BYTES;
+    // dropped connection all land here as a short file. Stat it only after the
+    // handle is closed — size() on a file still open for writing reports what
+    // it was when opened, which is zero, and threw away every good download.
+    File written = storage.fs().open(tempPath, FILE_READ);
+    const std::size_t bytes = written ? written.size() : 0;
+    written.close();
+
+    const bool complete = bytes == PANEL_BYTES;
     if (!complete) {
-        logf("  short file: %u bytes, expected %u", static_cast<unsigned>(file.size()),
+        logf("  short file: %u bytes, expected %u", static_cast<unsigned>(bytes),
              static_cast<unsigned>(PANEL_BYTES));
     }
-    file.close();
 
     if (!complete) {
         storage.fs().remove(tempPath);
