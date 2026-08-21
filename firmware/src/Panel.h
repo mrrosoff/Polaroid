@@ -6,7 +6,7 @@
 #include <array>
 #include <cstdint>
 #include <initializer_list>
-#include "Span.h"
+#include <span>
 #include <string_view>
 
 #include "Config.h"

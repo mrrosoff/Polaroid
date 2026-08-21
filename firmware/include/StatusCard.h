@@ -2,7 +2,7 @@
 
 #include <array>
 #include <cstdint>
-#include "Span.h"
+#include <span>
 #include <string_view>
 
 #include "Config.h"

@@ -14,10 +14,11 @@
 
 #include <cstdint>
 
+#include "Battery.h"
 #include "Config.h"
 #include "Overlay.h"
 #include "Panel.h"
-#include "Span.h"
+#include <span>
 
 namespace {
 
@@ -134,6 +135,26 @@ bool i2cLinesIdle() {
     return true;
 }
 
+// The divider is 2 x 1 MΩ off B+, so the ADC sees half the cell. An
+// unconnected D0 floats and reads near zero, which is the failure this
+// distinguishes from a genuinely flat battery.
+void probeBattery() {
+    const polaroid::BatteryReading reading = polaroid::readBattery();
+    const float atPin = reading.volts / config::VBAT_DIVIDER_RATIO;
+
+    Serial.printf("      VBAT=%.3f V (%.3f V at GPIO%d), %u%%%s%s\n", reading.volts, atPin,
+                  config::PIN_VBAT_SENSE, reading.percent, reading.low ? " LOW" : "",
+                  reading.critical ? " CRITICAL" : "");
+
+    if (reading.volts < 1.0f) {
+        Serial.println("FAIL  reads near zero - D0 is floating or the divider is not landed");
+    } else if (reading.volts > 4.4f) {
+        Serial.println("FAIL  reads above a full cell - is D0 on B+ directly, without R1?");
+    } else {
+        Serial.println("ok    in range; meter B+ and correct VBAT_ADC_CALIBRATION if it differs");
+    }
+}
+
 void probeAccelerometer() {
     if (!i2cLinesIdle()) {
         return;
@@ -213,6 +234,9 @@ void setup() {
     delay(2000);
     Serial.println();
     Serial.println("polaroid wiring test");
+
+    Serial.println("--- battery ---");
+    probeBattery();
 
     Serial.println("--- accelerometer ---");
     probeAccelerometer();
