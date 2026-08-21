@@ -19,12 +19,7 @@ constexpr uint8_t REG_INT1_CFG = 0x30;
 constexpr uint8_t REG_INT1_SRC = 0x31;
 constexpr uint8_t REG_INT1_THS = 0x32;
 constexpr uint8_t REG_INT1_DUR = 0x33;
-constexpr uint8_t REG_CLICK_CFG = 0x38;
-constexpr uint8_t REG_CLICK_SRC = 0x39;
-constexpr uint8_t REG_CLICK_THS = 0x3A;
-constexpr uint8_t REG_TIME_LIMIT = 0x3B;
-constexpr uint8_t REG_TIME_LATENCY = 0x3C;
-constexpr uint8_t REG_TIME_WINDOW = 0x3D;
+constexpr uint8_t REG_REFERENCE = 0x26;
 
 void writeRegister(uint8_t reg, uint8_t value) {
     Wire.beginTransmission(ACCEL_I2C_ADDRESS);
@@ -66,28 +61,25 @@ bool Motion::begin() {
 
     // High-pass filter the interrupt paths so gravity doesn't hold the activity
     // threshold permanently tripped whatever angle the frame hangs at.
-    writeRegister(REG_CTRL2, 0x0C);
+    //
+    // CTRL2 is HPM1 HPM0 HPCF2 HPCF1 FDS HPCLICK HP_IA2 HP_IA1. Bit 0 is the
+    // one that filters the activity generator, and leaving it clear pins INT1
+    // high forever: gravity is 1 g and the threshold is 0.75 g, so the device
+    // reads every wake as a fridge open and never gets back to sleep.
+    writeRegister(REG_CTRL2, 0x0D);
 
-    configureClickDetector();
+    // With HPM=00 the filter is reset by reading REFERENCE. Skip it and the
+    // filter keeps whatever offset it powered up with, which can hold the
+    // activity detector either permanently tripped or permanently deaf.
+    readRegister(REG_REFERENCE);
+
     configureActivityDetector();
 
-    // Both detectors route to INT1, latched.
-    writeRegister(REG_CTRL3, 0xC0);  // I1_CLICK | I1_IA1
+    // Activity routes to INT1, latched.
+    writeRegister(REG_CTRL3, 0x40);  // I1_IA1
     writeRegister(REG_CTRL5, 0x08);  // LIR_INT1
 
     return true;
-}
-
-void Motion::configureClickDetector() {
-    writeRegister(REG_CLICK_THS, CLICK_THRESHOLD & 0x7F);
-    writeRegister(REG_TIME_LIMIT, CLICK_TIME_LIMIT);
-    writeRegister(REG_TIME_LATENCY, CLICK_TIME_LATENCY);
-    writeRegister(REG_TIME_WINDOW, CLICK_TIME_WINDOW);
-
-    // Double-click on all three axes. Single-click fires when someone sets a
-    // glass down on the shelf next to it; requiring two reversals inside the
-    // window is what makes "shake" actually mean shake.
-    writeRegister(REG_CLICK_CFG, CLICK_REQUIRE_DOUBLE ? 0x2A : 0x15);
 }
 
 void Motion::configureActivityDetector() {
@@ -101,34 +93,17 @@ MotionEvent Motion::classifyWakeEvent() {
         return MotionEvent::None;
     }
 
-    // Order matters. Read CLICK_SRC first: a shake also trips the lower
-    // activity threshold, so checking activity first would classify every shake
-    // as a fridge open.
-    uint8_t clickSource = readRegister(REG_CLICK_SRC);
-    uint8_t activitySource = readRegister(REG_INT1_SRC);
-
-    bool clicked = (clickSource & 0x40) != 0;  // IA
-    if (clicked) {
-        bool doubleClick = (clickSource & 0x20) != 0;
-        if (!CLICK_REQUIRE_DOUBLE || doubleClick) {
-            return MotionEvent::Shake;
-        }
-    }
-
-    if ((activitySource & 0x40) != 0) {
-        return MotionEvent::Fridge;
-    }
-
-    return MotionEvent::None;
+    // Reading this is also what releases the latched INT1.
+    const uint8_t activitySource = readRegister(REG_INT1_SRC);
+    return (activitySource & 0x40) != 0 ? MotionEvent::Shake : MotionEvent::None;
 }
 
 void Motion::armForSleep() {
     if (!present_) {
         return;
     }
-    // Clear both latches so INT1 is released. If it is still asserted when we
+    // Clear the latch so INT1 is released. If it is still asserted when we
     // call esp_deep_sleep_start, ext0 fires immediately and we spin.
-    readRegister(REG_CLICK_SRC);
     readRegister(REG_INT1_SRC);
 }
 

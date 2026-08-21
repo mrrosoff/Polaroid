@@ -77,9 +77,6 @@ Mode decideMode(WakeReason reason, MotionEvent event) {
         if (event == MotionEvent::Shake) {
             return Mode::Sync;
         }
-        if (event == MotionEvent::Fridge && FRIDGE_MODE_ENABLED) {
-            return Mode::Fridge;
-        }
         // An unclassified interrupt is a spurious wake. Go straight back to
         // sleep without spending a 30 s refresh on it.
         return Mode::Normal;
@@ -95,8 +92,7 @@ Mode decideMode(WakeReason reason, MotionEvent event) {
 // wake, so it keeps counting while we're asleep and is the only monotonic clock
 // this device has that survives a two-month nap.
 //
-// Fridge doors bounce and so do hands; without this one shake reads as four,
-// each costing a 30 s refresh.
+// Hands bounce; without this one shake reads as four, each costing a sync.
 bool motionTooSoon() {
     RtcState& state = rtcState();
     uint32_t nowMs = static_cast<uint32_t>(esp_timer_get_time() / 1000);
@@ -239,11 +235,6 @@ void setup() {
 
         case Mode::Sync:
             runSync(event == MotionEvent::Shake);
-            renderCurrentPhoto();
-            break;
-
-        case Mode::Fridge:
-            state.photoIndex = nextIndex(state.photoIndex, state.photoCount);
             renderCurrentPhoto();
             break;
 

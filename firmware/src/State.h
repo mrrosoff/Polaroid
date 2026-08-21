@@ -15,7 +15,6 @@ enum class WakeReason : uint8_t {
 enum class Mode : uint8_t {
     Normal,
     Sync,
-    Fridge,
     Provision,
 };
 

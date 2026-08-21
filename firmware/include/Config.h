@@ -130,39 +130,27 @@ constexpr uint32_t PROVISION_TIMEOUT_MS = 10 * 60 * 1000;
 
 // ---------------------------------------------------------------- motion
 
-// Shake and fridge-jolt arrive on the same INT1 line and are told apart by
-// which of the LIS3DH's detectors fired. Calibrate these on the real fridge.
-//
-//   shake  = several direction reversals per second -> CLICK detector
-//   fridge = one directional swing, then settle     -> ACTIVITY threshold
+// Motion means one thing: shake to sync. There is no gesture to tell apart, so
+// the activity detector alone decides, and the threshold is what separates a
+// deliberate shake from the frame being knocked. Calibrate with
+// `pio run -e shake-test`.
 
 constexpr uint8_t ACCEL_I2C_ADDRESS = 0x18;  // SDO to GND
 constexpr uint8_t ACCEL_RANGE_G = 4;
 
-// Click detector. Threshold is in 1/128 of full scale, so at ±4 g one count is
-// about 31 mg. 80 counts ~= 2.5 g, which takes a real shake and not a nudge.
-constexpr uint8_t CLICK_THRESHOLD = 80;
-constexpr uint8_t CLICK_TIME_LIMIT = 10;    // max duration of one hit, 1/ODR units
-constexpr uint8_t CLICK_TIME_LATENCY = 20;  // deadtime after a hit
-constexpr uint8_t CLICK_TIME_WINDOW = 255;  // window for the second hit of a double
+// Threshold is 1/128 of full scale, so at ±4 g one count is about 31 mg. The
+// interrupt path is high-pass filtered, so this is measured against movement
+// with gravity already removed — a resting frame reads near zero at any angle.
+constexpr uint8_t ACTIVITY_THRESHOLD = 40;
 
-// Double-click, not single. A single-click detector fires when you set a glass
-// down next to the fridge; requiring two reversals inside the window is what
-// makes "shake" mean shake.
-constexpr bool CLICK_REQUIRE_DOUBLE = true;
+// Samples above the threshold before INT1 asserts, in 1/ODR units. At 50 Hz
+// each count is 20 ms, so 2 means the movement has to last 40 ms: long enough
+// to reject a single sharp tap on the door.
+constexpr uint8_t ACTIVITY_DURATION = 2;
 
-// Activity threshold, in the same 1/128 units. Well below the click threshold —
-// a fridge door is a big slow swing, not a sharp hit.
-constexpr uint8_t ACTIVITY_THRESHOLD = 24;
-constexpr uint8_t ACTIVITY_DURATION = 4;
-
-// Ignore anything within this long of the last event. Fridge doors bounce, and
-// so do hands — without this a single shake reads as four.
+// Ignore anything within this long of the last event: hands bounce, and
+// without this one shake reads as four, each costing a full sync.
 constexpr uint32_t MOTION_DEBOUNCE_MS = 3'000;
-
-// FRIDGE mode is off by default: advancing on every door open burns the panel
-// budget fast and the effect wears off. Flip to true to experiment.
-constexpr bool FRIDGE_MODE_ENABLED = false;
 
 // ---------------------------------------------------------------- battery
 
