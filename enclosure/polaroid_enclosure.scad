@@ -165,8 +165,15 @@ pocket_x_inset = wall + 1.0;   // 2.5
 side_screw_edge_clearance = corner_r + side_clear_d / 2 + 0.3;
 rim = side_screw_edge_clearance + side_boss_od / 2 + 1.0;   // ~9.2
 
+// Extra height below the board pocket. The parts do not fit in the footprint
+// the board alone gives: battery, MCU, accelerometer and the harness all live
+// in one layer under a board that spans the whole pocket, and they ran out of
+// floor. This buys that floor back, and it happens to be the chin an instant
+// print has anyway.
+chin = 10.0;
+
 outer_w = pocket_w + 2 * pocket_x_inset;   // ~73.6
-outer_h = pocket_h + 2 * rim;              // ~122.5
+outer_h = pocket_h + 2 * rim + chin;
 
 bezel_front_t = 2.2;
 glass_pocket_w = glass_w + 2 * clearance;
@@ -191,7 +198,14 @@ rib_h = glass_t + board_t;
 // top of the battery layer. That is a SUM, not a max: the board spans the
 // entire footprint, so nothing can sit beside it.
 component_h = max(batt_t + batt_puff_clearance, mcu_component_h, accel_h);
-tray_interior_depth = glass_t + board_t + component_h + clearance;
+
+// Measured on the real assembly, glass through to the back of the harness.
+// The sum beside it is what the parts list predicts, and it comes up short
+// because wires are not in the parts list: they cross the battery, stand off
+// solder joints, and hold whatever curve they were bent into. Trust the
+// measurement, and keep the sum as a floor so a parts change still moves it.
+measured_stack_t = 28.0;
+tray_interior_depth = max(glass_t + board_t + component_h, measured_stack_t) + clearance;
 tray_wall_h = tray_interior_depth + tray_floor_t;
 
 total_thickness = bezel_front_t + tray_wall_h;
@@ -237,7 +251,7 @@ module rounded_rect(w, h, r) {
 
 module front_bezel() {
     pocket_x = pocket_x_inset;
-    pocket_y = rim;
+    pocket_y = rim + chin;   // the chin is below the pocket, not around it
 
     // Glass centred on the board pocket in X; in Y it sits above the FPC fold
     // gap, which is at the pocket's low edge.
