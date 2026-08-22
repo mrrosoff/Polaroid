@@ -25,6 +25,13 @@ class Storage {
     [[nodiscard]] bool hasPhoto(std::string_view id) const;
     bool removePhoto(std::string_view id);
 
+    // Deletes framebuffers the manifest does not mention. Sync only ever walks
+    // manifest entries, so a file it has no record of is invisible to it and
+    // never freed: a crash between writing a photo and saving the manifest
+    // leaves one behind, as does dying mid-download. With three frames of
+    // headroom that is the difference between replacement working and not.
+    std::uint16_t removeOrphans(const Manifest& manifest);
+
     [[nodiscard]] std::size_t freeBytes() const;
     [[nodiscard]] std::uint16_t capacityPhotos() const;
 

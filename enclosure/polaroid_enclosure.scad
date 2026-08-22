@@ -365,13 +365,19 @@ module rear_tray() {
                     cylinder(d = side_clear_d, h = flange_inset + flange_w + 0.2);
         }
 
-        // "Polaroid" — indented on the exterior back, clear of the magnet.
-        // mirror() flips it to read correctly from outside; model coordinates
+        // Indented on the exterior back, below the magnet pocket. mirror()
+        // flips them to read correctly from outside, since model coordinates
         // are the inside view.
-        translate([outer_w / 2, 9.0, -0.1])
+        translate([outer_w / 2, 11.5, -0.1])
             mirror([1, 0, 0])
                 linear_extrude(height = 0.8)
-                    text("Polaroid", size = 5.0, font = "Noteworthy:style=Bold",
+                    text("Polaroid", size = 5.0, font = "Futura:style=Bold",
+                         halign = "center", valign = "center");
+
+        translate([outer_w / 2, 5.5, -0.1])
+            mirror([1, 0, 0])
+                linear_extrude(height = 0.8)
+                    text("by Max", size = 3.0, font = "Futura:style=Medium",
                          halign = "center", valign = "center");
     }
 

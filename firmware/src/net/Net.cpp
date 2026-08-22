@@ -4,7 +4,6 @@
 #include <HTTPClient.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
-#include <WiFiManager.h>
 #include <WiFiMulti.h>
 
 #include <algorithm>
@@ -43,28 +42,6 @@ Net::~Net() {
     if (connected_) {
         disconnect();
     }
-}
-
-bool Net::hasCredentials() {
-    if (std::size(WIFI_NETWORKS) > 0) {
-        return true;
-    }
-    wifi_config_t stored{};
-    if (esp_wifi_get_config(WIFI_IF_STA, &stored) != ESP_OK) {
-        return false;
-    }
-    return stored.sta.ssid[0] != '\0';
-}
-
-bool Net::runProvisioningPortal() {
-    WiFiManager manager;
-    // POWER: the timeout is the point. Without it an abandoned setup sits at
-    // ~80 mA in AP mode until the battery is flat.
-    manager.setConfigPortalTimeout(PROVISION_TIMEOUT_MS / 1000);
-    manager.setTitle("Polaroid");
-    manager.setDarkMode(false);
-
-    return manager.autoConnect(PROVISION_AP_NAME);
 }
 
 bool Net::connect() {
@@ -282,6 +259,12 @@ SyncResult Net::sync(Storage& storage) {
     }
 
     storage.saveManifest(committed);
+
+    // Only now that the manifest is written and matches what is on disk.
+    const std::uint16_t orphans = storage.removeOrphans(committed);
+    if (orphans > 0) {
+        logf("  swept %u orphaned framebuffers", orphans);
+    }
 
     result.ok = true;
     return result;

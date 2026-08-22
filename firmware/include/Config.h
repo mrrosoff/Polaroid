@@ -69,15 +69,15 @@ constexpr int PIN_VBAT_SENSE = 1;  // D0, ADC1_CH0
 // sleep path can iterate it without a special case.
 constexpr std::array<int, 0> UNUSED_PINS{};
 
-// POWER: PIN_EPD_PWR gates the panel driver board's rail. See docs/POWER.md —
-// it is worth about 30 µA, which is a third of the sleep budget.
+// POWER: PIN_EPD_PWR gates the panel driver board's rail. Worth about 30 µA,
+// a third of the sleep budget. See the README.
 
 // ---------------------------------------------------------------- timing
 
 constexpr uint32_t REFRESH_INTERVAL_SECONDS = 60 * 60;  // hourly
 
 // POWER: this is the dominant term in the whole budget, not sleep current.
-// Doubling it to two hours buys roughly 60 extra days. See docs/POWER.md.
+// Doubling it to two hours buys roughly 60 extra days. See the README.
 
 constexpr uint32_t SYNC_INTERVAL_SECONDS = 24 * 60 * 60;
 
@@ -98,10 +98,6 @@ constexpr uint8_t MAX_SYNC_FAILURES = 8;
 constexpr uint32_t WIFI_CONNECT_TIMEOUT_MS = 15'000;
 constexpr uint32_t SYNC_TIMEOUT_MS = 45'000;
 constexpr uint32_t HTTP_TIMEOUT_MS = 10'000;
-
-// Captive portal gives up and sleeps rather than sitting at 80 mA forever if
-// the couple wanders off mid-setup.
-constexpr uint32_t PROVISION_TIMEOUT_MS = 10 * 60 * 1000;
 
 // ---------------------------------------------------------------- motion
 
@@ -183,7 +179,6 @@ constexpr uint32_t EMPTY_CHECK_INTERVAL_SECONDS = 6 * 60 * 60;
 // ---------------------------------------------------------------- network
 
 constexpr char API_BASE_URL[] = "https://api.maxrosoff.com/polaroid";
-constexpr char PROVISION_AP_NAME[] = "Polaroid Setup";
 
 // 50, not the 53 that fit: downloadPhoto stages a full temp file before
 // replacing. Must match MAX_PHOTOS in the service's api/common.ts.

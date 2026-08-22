@@ -12,12 +12,6 @@ enum class WakeReason : uint8_t {
     Motion,
 };
 
-enum class Mode : uint8_t {
-    Normal,
-    Sync,
-    Provision,
-};
-
 // Lives in RTC slow memory: survives deep sleep, costs no flash writes, and
 // flash writes are both slow and finite. Nothing here is worth a wear cycle.
 struct RtcState {
@@ -28,7 +22,6 @@ struct RtcState {
     uint32_t secondsSinceSync;
     uint32_t lastMotionMillisSinceBoot;
     uint8_t lowBattery;
-    uint8_t provisioned;
     // Set once the "CHARGE ME" card is on the panel. Without it the device
     // would redraw the card on every wake, spending the last of the battery
     // repainting a picture that is already there.

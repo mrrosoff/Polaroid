@@ -1,5 +1,7 @@
 #include "Storage.h"
 
+#include <vector>
+
 #include "system/Log.h"
 
 #include <ArduinoJson.h>
@@ -49,6 +51,47 @@ bool Storage::hasPhoto(std::string_view id) const {
     const bool complete = file.size() == PANEL_BYTES;
     file.close();
     return complete;
+}
+
+std::uint16_t Storage::removeOrphans(const Manifest& manifest) {
+    if (!mounted_) {
+        return 0;
+    }
+
+    File dir = LittleFS.open(PHOTO_DIR);
+    if (!dir || !dir.isDirectory()) {
+        return 0;
+    }
+
+    // Collect first, delete after: removing entries while walking the
+    // directory invalidates the iteration.
+    std::vector<String> doomed;
+    for (File entry = dir.openNextFile(); entry; entry = dir.openNextFile()) {
+        const String name = entry.name();
+        entry.close();
+
+        if (!name.endsWith(".bin")) {
+            // The staging file from an interrupted download.
+            doomed.push_back(name);
+            continue;
+        }
+
+        const std::string_view id(name.c_str(), name.length() - 4);
+        if (manifest.find(id) == nullptr) {
+            doomed.push_back(name);
+        }
+    }
+    dir.close();
+
+    std::uint16_t removed = 0;
+    for (const String& name : doomed) {
+        PhotoPath path{};
+        snprintf(path.data(), path.size(), "%s/%s", PHOTO_DIR, name.c_str());
+        if (LittleFS.remove(path.data())) {
+            removed++;
+        }
+    }
+    return removed;
 }
 
 bool Storage::removePhoto(std::string_view id) {

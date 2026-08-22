@@ -27,13 +27,6 @@ class Net {
     Net(const Net&) = delete;
     Net& operator=(const Net&) = delete;
 
-    // True when Secrets.h lists networks, or NVS holds a provisioned one.
-    [[nodiscard]] static bool hasCredentials();
-
-    // Fallback for an empty WIFI_NETWORKS. Blocks until the couple finishes
-    // or PROVISION_TIMEOUT_MS.
-    [[nodiscard]] static bool runProvisioningPortal();
-
     [[nodiscard]] bool connect();
     void disconnect();
 

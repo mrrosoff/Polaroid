@@ -72,31 +72,17 @@ void renderCurrentPhoto() {
     panel.displayFile(storage.fs(), path.data(), anyIcon ? overlayHook : nullptr);
 }
 
-Mode decideMode(WakeReason reason, MotionEvent event) {
-    if (!Net::hasCredentials()) {
-        return Mode::Provision;
-    }
-
+// A wake either syncs or it does not. Shakes sync because that is the gesture;
+// a cold boot syncs because it has nothing to show and a zeroed clock; the
+// timer syncs once its interval is up.
+[[nodiscard]] bool shouldSync(WakeReason reason, MotionEvent event) {
     if (reason == WakeReason::Motion) {
-        if (event == MotionEvent::Shake) {
-            return Mode::Sync;
-        }
-        // An unclassified interrupt is a spurious wake. Go straight back to
-        // sleep without spending a refresh on it.
-        return Mode::Normal;
+        return event == MotionEvent::Shake;
     }
-
-    // A cold boot has an empty flash and a zeroed secondsSinceSync, so the
-    // interval check below would say "synced recently" and wait a full day
-    // before fetching anything. Nothing to show is reason enough to sync.
     if (reason == WakeReason::ColdBoot) {
-        return Mode::Sync;
+        return true;
     }
-
-    if (rtcState().secondsSinceSync >= syncInterval(rtcState().syncFailures)) {
-        return Mode::Sync;
-    }
-    return Mode::Normal;
+    return rtcState().secondsSinceSync >= syncInterval(rtcState().syncFailures);
 }
 
 // Debounce across deep sleep. esp_timer is restored from the RTC counter on
@@ -275,39 +261,24 @@ void setup() {
         powerDownAndSleep(EMPTY_CHECK_INTERVAL_SECONDS);
     }
 
-    Mode mode = decideMode(reason, event);
-    logf("mode=%s", mode == Mode::Sync        ? "sync"
-                    : mode == Mode::Provision ? "provision"
-                                              : "normal");
-
     if (reason == WakeReason::Motion && motionTooSoon()) {
         powerDownAndSleep(REFRESH_INTERVAL_SECONDS);
     }
 
-    switch (mode) {
-        case Mode::Provision:
-            // Blocks until the couple finishes or the portal times out.
-            // Nothing on screen is worth preserving on a cold boot, so this is
-            // the one path allowed to spend minutes awake.
-            if (Net::runProvisioningPortal()) {
-                state.provisioned = 1;
-                runSync(false);
-            }
-            renderCurrentPhoto();
-            break;
+    const bool syncing = shouldSync(reason, event);
+    logf("%s", syncing ? "syncing" : "advancing");
 
-        case Mode::Sync:
-            runSync(event == MotionEvent::Shake);
-            renderCurrentPhoto();
-            break;
-
-        case Mode::Normal:
-            if (reason != WakeReason::Motion) {
-                state.photoIndex = nextIndex(state.photoIndex, state.photoCount);
-                renderCurrentPhoto();
-            }
-            break;
+    if (syncing) {
+        runSync(event == MotionEvent::Shake);
+    } else if (reason == WakeReason::Motion) {
+        // A motion wake that is not a shake is spurious. Back to sleep without
+        // spending a refresh on it.
+        powerDownAndSleep(REFRESH_INTERVAL_SECONDS);
+    } else {
+        state.photoIndex = nextIndex(state.photoIndex, state.photoCount);
     }
+
+    renderCurrentPhoto();
 
     powerDownAndSleep(REFRESH_INTERVAL_SECONDS);
 }
