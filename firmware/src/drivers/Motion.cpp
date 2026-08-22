@@ -3,6 +3,8 @@
 #include <Adafruit_LIS3DH.h>
 #include <Wire.h>
 
+#include <cstdint>
+
 using namespace config;
 
 namespace polaroid {
@@ -102,9 +104,29 @@ void Motion::armForSleep() {
     if (!present_) {
         return;
     }
-    // Clear the latch so INT1 is released. If it is still asserted when we
-    // call esp_deep_sleep_start, ext0 fires immediately and we spin.
-    readRegister(REG_INT1_SRC);
+
+    // Clearing the latch is not enough on its own: ext0 is level-triggered, and
+    // if the frame is still moving the detector re-asserts within about a
+    // millisecond, so we would wake again the instant we slept. Keep clearing
+    // until the line has stayed low long enough to mean the movement is over.
+    const std::uint32_t deadline = millis() + MOTION_SETTLE_TIMEOUT_MS;
+    std::uint32_t lowSince = 0;
+
+    while (millis() < deadline) {
+        readRegister(REG_INT1_SRC);
+
+        if (digitalRead(PIN_ACCEL_INT1) == LOW) {
+            if (lowSince == 0) {
+                lowSince = millis();
+            } else if (millis() - lowSince >= MOTION_SETTLE_MS) {
+                return;
+            }
+        } else {
+            lowSince = 0;
+        }
+
+        delay(5);
+    }
 }
 
 void Motion::powerDown() { Wire.end(); }

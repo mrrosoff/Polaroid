@@ -168,7 +168,7 @@ void runSync(bool triggeredByShake) {
     motion.armForSleep();
     motion.powerDown();
 
-#ifdef POLAROID_BRINGUP
+#ifdef POLAROID_NO_SLEEP
     // Dev build: never deep sleep. Sleep drops USB, which takes away both the
     // serial log and the ability to flash without holding BOOT through a
     // reset. Idling here keeps the bus up indefinitely; a shake restarts the

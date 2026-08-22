@@ -71,17 +71,21 @@ WakeReason wakeReason() {
     }
 
     // INT1 is push-pull active-high from the LIS3DH, so ext0 waits for a 1.
-    // Motion::armForSleep must have already cleared the latches or this fires
-    // the instant we sleep.
+    // Motion::armForSleep must have already cleared the latch and waited for
+    // the line to settle, or this fires the instant we sleep.
     rtc_gpio_pulldown_en(static_cast<gpio_num_t>(PIN_ACCEL_INT1));
     rtc_gpio_pullup_dis(static_cast<gpio_num_t>(PIN_ACCEL_INT1));
     esp_sleep_enable_ext0_wakeup(static_cast<gpio_num_t>(PIN_ACCEL_INT1), 1);
 
     esp_sleep_enable_timer_wakeup(static_cast<uint64_t>(seconds) * 1000000ULL);
 
-    // Nothing in the RTC peripheral domain is needed while asleep; leaving it
-    // on is worth tens of µA on the S3.
-    esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_OFF);
+    // POWER: the RTC peripheral domain stays on, and that is deliberate. ext0
+    // runs on it, so powering it down to save tens of µA silently disables the
+    // motion wake — the device sleeps, wakes on the hourly timer, and ignores
+    // every shake, with nothing in any log to say why. Measured on hardware:
+    // with the domain powered down a shake never wakes it; with it on, it
+    // wakes every time. Do not add esp_sleep_pd_config here without measuring
+    // the sleep current first and re-testing a shake after.
 
     Serial.flush();
     esp_deep_sleep_start();

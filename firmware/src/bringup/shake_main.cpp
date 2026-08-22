@@ -19,6 +19,7 @@ polaroid::Motion motion;
 
 std::uint32_t shakes = 0;
 std::uint32_t spurious = 0;
+std::uint32_t suppressed = 0;
 std::uint32_t lastEventMs = 0;
 
 const char* name(polaroid::MotionEvent event) {
@@ -59,7 +60,15 @@ void loop() {
     // bounces into several interrupts, and each would cost a panel refresh.
     const std::uint32_t now = millis();
     if (lastEventMs != 0 && now - lastEventMs < config::MOTION_DEBOUNCE_MS) {
-        motion.armForSleep();  // release the latch, ignore the bounce
+        // Distinguishes a shake the detector missed from one the debounce ate:
+        // silence here means the threshold is too high, this line means it is
+        // working and MOTION_DEBOUNCE_MS is what collapsed the burst.
+        ++suppressed;
+        Serial.printf("%8lu ms  (debounced, %lu ms since last)   suppressed=%lu\n",
+                      static_cast<unsigned long>(now),
+                      static_cast<unsigned long>(now - lastEventMs),
+                      static_cast<unsigned long>(suppressed));
+        motion.armForSleep();
         return;
     }
     lastEventMs = now;

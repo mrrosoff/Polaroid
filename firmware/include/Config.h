@@ -127,6 +127,17 @@ constexpr uint8_t ACTIVITY_DURATION = 2;
 // without this one shake reads as four, each costing a full sync.
 constexpr uint32_t MOTION_DEBOUNCE_MS = 3'000;
 
+// INT1 is level-triggered, and the detector re-asserts the moment the latch is
+// cleared if the frame is still moving — measured at ~1 ms, dozens of times per
+// shake. Sleeping into that wakes us straight back up, so armForSleep waits for
+// the line to stay low this long before letting go.
+constexpr uint32_t MOTION_SETTLE_MS = 50;
+
+// POWER: a ceiling on that wait. A wedged or permanently tripped detector must
+// not hold the device awake — better to sleep, wake immediately, and let
+// motionTooSoon bail than to sit here burning current.
+constexpr uint32_t MOTION_SETTLE_TIMEOUT_MS = 2'000;
+
 // ---------------------------------------------------------------- battery
 
 // 2 x 1 MΩ divider, so the ADC sees half of VBAT.
