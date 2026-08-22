@@ -90,14 +90,11 @@ void Motion::configureActivityDetector() {
     writeRegister(REG_INT1_CFG, 0x2A);  // OR of high events on X, Y, Z
 }
 
-MotionEvent Motion::classifyWakeEvent() {
+void Motion::clearWakeLatch() {
     if (!present_) {
-        return MotionEvent::None;
+        return;
     }
-
-    // Reading this is also what releases the latched INT1.
-    const uint8_t activitySource = readRegister(REG_INT1_SRC);
-    return (activitySource & 0x40) != 0 ? MotionEvent::Shake : MotionEvent::None;
+    readRegister(REG_INT1_SRC);
 }
 
 void Motion::armForSleep() {

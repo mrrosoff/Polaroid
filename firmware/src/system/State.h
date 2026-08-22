@@ -28,6 +28,11 @@ struct RtcState {
     uint8_t emptyCardDrawn;
     // Consecutive failed syncs. Drives the retry backoff and the offline icon.
     uint8_t syncFailures;
+    // Bench instrumentation: a motion wake can sleep again faster than USB
+    // enumerates, so the decision has to survive into the next boot to be
+    // readable at all.
+    uint16_t motionWakes;
+    uint8_t lastExit;
     uint32_t checksum;
 };
 

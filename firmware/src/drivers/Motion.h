@@ -15,10 +15,12 @@ class Motion {
   public:
     bool begin();
 
-    // Reads INT1_SRC to see whether the activity detector fired. The register
-    // latches, and reading it is what releases INT1 — so this has to happen on
-    // every wake or the line stays asserted and we never sleep.
-    MotionEvent classifyWakeEvent();
+    // Clears the latched INT1_SRC. Must happen on every wake or the line stays
+    // asserted and we never sleep. It does not report what fired: begin() has
+    // already rewritten the detector's registers by this point, which clears
+    // the source bits, so the answer would always be "nothing". The wake cause
+    // from esp_sleep is the reliable signal, and INT1 has only one source.
+    void clearWakeLatch();
 
     void armForSleep();
     void powerDown();

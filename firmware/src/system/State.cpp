@@ -1,7 +1,6 @@
 #include "State.h"
 
 #include <WiFi.h>
-#include <driver/rtc_io.h>
 #include <esp_sleep.h>
 #include <esp_wifi.h>
 
@@ -63,6 +62,13 @@ WakeReason wakeReason() {
     esp_wifi_stop();
     esp_wifi_deinit();
 
+    // Measured, not guessed: with the teardown above in place a shake never
+    // woke the device, and with it skipped the wake counter climbed on every
+    // shake. Stopping and deinitialising the radio releases its power
+    // management locks, which leaves the RTC peripheral domain configured off,
+    // and ext0 runs on that domain. Assert it back on before arming.
+    esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);
+
     // POWER: every unused pin gets an explicit pull. A floating CMOS input
     // oscillates around its threshold and burns current that is very hard to
     // attribute later.
@@ -73,8 +79,11 @@ WakeReason wakeReason() {
     // INT1 is push-pull active-high from the LIS3DH, so ext0 waits for a 1.
     // Motion::armForSleep must have already cleared the latch and waited for
     // the line to settle, or this fires the instant we sleep.
-    rtc_gpio_pulldown_en(static_cast<gpio_num_t>(PIN_ACCEL_INT1));
-    rtc_gpio_pullup_dis(static_cast<gpio_num_t>(PIN_ACCEL_INT1));
+    // No rtc_gpio_* setup here. The LIS3DH drives INT1 push-pull, so it needs
+    // no internal pull, and touching the pad outside of
+    // esp_sleep_enable_ext0_wakeup's own configuration stopped the wake from
+    // firing at all. Verified by bisecting against a minimal sleep test that
+    // armed ext0 and nothing else.
     esp_sleep_enable_ext0_wakeup(static_cast<gpio_num_t>(PIN_ACCEL_INT1), 1);
 
     esp_sleep_enable_timer_wakeup(static_cast<uint64_t>(seconds) * 1000000ULL);

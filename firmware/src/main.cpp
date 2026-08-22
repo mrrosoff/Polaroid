@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <Wire.h>
 #include <esp_system.h>
 #include <esp_timer.h>
 
@@ -150,7 +151,52 @@ void runSync(bool triggeredByShake) {
 
 // Every exit from setup() runs this. Clearing the latches is not optional:
 // ext0 is level-triggered, so an asserted INT1 wakes us the instant we sleep.
+// Why the previous wake ended, readable on the next boot.
+enum : std::uint8_t {
+    EXIT_NORMAL = 1,
+    EXIT_NO_FILESYSTEM = 2,
+    EXIT_CRITICAL_BATTERY = 3,
+    EXIT_MOTION_TOO_SOON = 4,
+    EXIT_SPURIOUS_MOTION = 5,
+};
+
+// RTC_DATA_ATTR survives deep sleep but not a reset through EN, so anything
+// recorded for the next boot is destroyed by pressing the button to go and
+// read it. On the bench the device has to wake itself instead, and an hour is
+// too long to wait for that.
+[[nodiscard]] std::uint32_t sleepSeconds(std::uint32_t seconds) {
+#ifdef POLAROID_BRINGUP
+    return seconds > 45 ? 45 : seconds;
+#else
+    return seconds;
+#endif
+}
+
 [[noreturn]] void powerDownAndSleep(uint32_t seconds) {
+#ifdef POLAROID_BRINGUP
+    // Is the accelerometer still alive now that the panel rail is cut? If the
+    // LIS3DH is fed from the gated rail rather than from 3V3, it is dead by
+    // this point and cannot assert INT1, which would look exactly like a
+    // broken wake. WHO_AM_I answers that in one transaction.
+    Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
+    Wire.setTimeOut(20);
+    Wire.beginTransmission(ACCEL_I2C_ADDRESS);
+    Wire.write(0x0F);
+    const bool addressed = Wire.endTransmission(false) == 0;
+    Wire.requestFrom(static_cast<std::uint8_t>(ACCEL_I2C_ADDRESS), static_cast<std::uint8_t>(1));
+    const int who = Wire.available() ? Wire.read() : -1;
+    // Everything logged at the top of setup() is lost: USB takes longer to
+    // enumerate after a deep-sleep wake than the host wait allows. This line
+    // runs seconds later and does get through, so the wake's verdict is
+    // reported here rather than on the next boot.
+    logf("wake=%s exit=%u motionWakes=%u | LIS3DH ack=%d WHO_AM_I=0x%02X INT1=%d",
+         wakeReason() == WakeReason::Motion  ? "motion"
+         : wakeReason() == WakeReason::Timer ? "timer"
+                                             : "cold",
+         rtcState().lastExit, rtcState().motionWakes, addressed ? 1 : 0, who,
+         digitalRead(PIN_ACCEL_INT1));
+#endif
+
     motion.armForSleep();
     motion.powerDown();
 
@@ -175,7 +221,7 @@ void runSync(bool triggeredByShake) {
     }
 #endif
 
-    sleepUntilNextEvent(seconds);
+    sleepUntilNextEvent(sleepSeconds(seconds));
 }
 
 }  // namespace
@@ -202,6 +248,10 @@ void setup() {
     state.bootCount++;
 
     WakeReason reason = wakeReason();
+    logf("prev exit=%u, motion wakes=%u", state.lastExit, state.motionWakes);
+    if (wakeReason() == WakeReason::Motion) {
+        state.motionWakes++;
+    }
     logf("boot %lu, wake=%s", static_cast<unsigned long>(state.bootCount),
          reason == WakeReason::Motion  ? "motion"
          : reason == WakeReason::Timer ? "timer"
@@ -212,6 +262,7 @@ void setup() {
 
     if (!storage.begin()) {
         logf("FATAL: no filesystem; sleeping");
+        state.lastExit = EXIT_NO_FILESYSTEM;
         // Nothing to render and nothing to fix at runtime. Sleep rather than
         // spin — the panel keeps whatever it was already showing.
         sleepUntilNextEvent(REFRESH_INTERVAL_SECONDS);
@@ -220,11 +271,18 @@ void setup() {
     state.photoCount = manifest.size();
     logf("filesystem mounted, %u photos on flash", state.photoCount);
 
-    // A missing accelerometer is survivable: the timer still rotates photos and
-    // classifyWakeEvent reports None, so every wake looks like a timer wake.
+    // A missing accelerometer is survivable: nothing asserts INT1, so the timer
+    // still rotates photos and every wake looks like a timer wake.
     motion.begin();
+    // INT1 has exactly one source, so a motion wake is a shake. Asking the
+    // LIS3DH which detector fired would always answer "none": motion.begin()
+    // above has already rewritten its registers, and that clears the latched
+    // source bits before we could read them.
     const MotionEvent event =
-        reason == WakeReason::Motion ? motion.classifyWakeEvent() : MotionEvent::None;
+        reason == WakeReason::Motion ? MotionEvent::Shake : MotionEvent::None;
+    if (reason == WakeReason::Motion) {
+        motion.clearWakeLatch();
+    }
 
     // Read before anything draws. The rail sags under a 45 mA refresh, so a
     // reading taken afterwards reports a battery several percent emptier than
@@ -258,10 +316,12 @@ void setup() {
                 state.emptyCardDrawn = 1;
             }
         }
+        state.lastExit = EXIT_CRITICAL_BATTERY;
         powerDownAndSleep(EMPTY_CHECK_INTERVAL_SECONDS);
     }
 
     if (reason == WakeReason::Motion && motionTooSoon()) {
+        state.lastExit = EXIT_MOTION_TOO_SOON;
         powerDownAndSleep(REFRESH_INTERVAL_SECONDS);
     }
 
@@ -273,6 +333,7 @@ void setup() {
     } else if (reason == WakeReason::Motion) {
         // A motion wake that is not a shake is spurious. Back to sleep without
         // spending a refresh on it.
+        state.lastExit = EXIT_SPURIOUS_MOTION;
         powerDownAndSleep(REFRESH_INTERVAL_SECONDS);
     } else {
         state.photoIndex = nextIndex(state.photoIndex, state.photoCount);
@@ -280,6 +341,7 @@ void setup() {
 
     renderCurrentPhoto();
 
+    state.lastExit = EXIT_NORMAL;
     powerDownAndSleep(REFRESH_INTERVAL_SECONDS);
 }
 
