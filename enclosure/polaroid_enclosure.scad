@@ -79,10 +79,9 @@ flange_inset      = wall;  // flush against the tray's wall
 // The BOARD, not the glass, sets the footprint: it's 2mm bigger in both axes.
 board_w = 68.0;
 board_h = 101.0;
-// ASSUMPTION: PCB + components + FPC connector with the Pi headers removed.
-// Measure yours before printing — this is the single number most likely to be
-// wrong, and it sets the total device thickness.
-board_t = 6.0;
+// Measured with calipers on the real board, headers removed. Was assumed at
+// 6.0, which would have left the case 1mm short of closing.
+board_t = 7.0;
 
 glass_w = 66.0;
 glass_h = 99.0;
@@ -118,7 +117,8 @@ mcu_component_h = 4.0;  // USB-C shell is the tall part
 batt_w = 60.0;
 batt_h = 36.0;
 batt_t = 7.0;
-batt_puff_clearance = 1.5;  // LiPo pouches swell over their life
+batt_puff_clearance = 2.0;  // Same cell as Forager, same allowance: its
+                            // 2.0 came off a real print, this was a guess.
 
 // ---- Accelerometer: Adafruit LIS3DH breakout ----
 accel_w = 25.0;
