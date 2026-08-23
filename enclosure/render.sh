@@ -11,6 +11,18 @@ echo "STLs..."
 openscad -D 'part="bezel"' -o stl/front_bezel.stl "$SCAD"
 openscad -D 'part="tray"'  -o stl/rear_tray.stl   "$SCAD"
 
+echo "fit check..."
+# An empty intersection is the pass. OpenSCAD refuses to export a file at all
+# when the result is empty, so "no output" and "no interference" are the same
+# thing here, and its non-zero exit in that case is expected.
+FIT=/tmp/polaroid_fit.stl
+rm -f "$FIT"
+openscad -o "$FIT" fit_check.scad >/dev/null 2>&1 || true
+if [ -s "$FIT" ]; then
+    echo "FAIL: bezel and tray share volume — render fit_check.scad to see where" >&2
+    exit 1
+fi
+
 echo "previews..."
 # camera=tx,ty,tz,rot_x,rot_y,rot_z,dist  (dist ignored under --viewall)
 openscad -D 'part="bezel"' $IMG --camera=0,0,0,0,0,0,0    -o preview/01_bezel_front.png    "$SCAD"
