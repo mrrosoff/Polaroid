@@ -15,17 +15,18 @@
 //
 // NOTHING IS DRAWN ON THE PANEL AND NOTHING HIDES BEHIND IT.
 //
-// The photo runs full-bleed across all 400x600. The 10mm chin below the board
-// is not a styling decision and does not cover any of the glass: the parts do
-// not fit under a board that spans the whole pocket, and the chin is the floor
-// they needed. It is what an instant print looks like anyway, which is luck,
-// not intent. A chin added for looks would have been the wrong call — it would
-// have to hide a quarter of a $45 panel to earn its aspect ratio.
+// The photo runs full-bleed across all 400x600, and there is no chin. There
+// was one, 10mm of it, on the theory that the parts had run out of floor under
+// a board that spans the whole pocket. Laid out against the real footprints
+// they had not: the battery sits along the top wall, the MCU and accelerometer
+// along the bottom, and 30mm of floor between them was doing nothing. A chin
+// kept for looks would have been the wrong call — it would have to hide a
+// quarter of a $45 panel to earn its aspect ratio.
 //
-// SIZE: 71.6 x 130.6 x 26.8mm, against a board that is 68 x 101. That is
+// SIZE: 71.6 x 118.8 x 22.7mm, against a board that is 68 x 101. That is
 // 1.5mm of bezel either side of the board — the wall, and nothing else — and
 // 8.1mm either side of the visible image. Above and below the board it is
-// 8.25mm of rim, which is the screw and nothing else. See the screw note below
+// 7.35mm of rim, which is the screw and nothing else. See the screw note below
 // for how the side margin got down there.
 //
 // PRINT IT IN A DARK COLOUR. E-ink white is bone (~78% reflectance); a white
@@ -55,11 +56,13 @@ corner_r  = 2.8;
 // Sized generously after the Forager print, where the screws did not bite.
 // Three things were wrong there and all three are fixed here:
 //
-//   1. flange_w was the entire thread engagement, and 3.2mm is about two
-//      threads of an M2 self-tapper. 6.0mm is four or five — the difference
-//      between gripping and stripping the hole on first assembly.
+//   1. flange_w is the entire thread engagement, and 3.2mm is about two
+//      threads of an M2 self-tapper. 4.0mm is three or four, which is what
+//      the joint needs. It was 6.0 because nothing charged for it, and 6mm
+//      of solid flange hung into the cavity for no reason.
 //   2. side_boss_od was 4.5mm around a 2.0mm pilot, leaving a 1.25mm wall
-//      that splits when the screw taps itself in. 7.0mm leaves 2.5mm.
+//      that splits when the screw taps itself in. This file went to 7.0mm
+//      and has since come back down — see the note on side_boss_od below.
 //   3. Nothing checked that the flange still existed at the height the screw
 //      arrives at. The assertions below do; one of them caught a 2.5mm
 //      overhang while this file was being written.
@@ -73,11 +76,15 @@ corner_r  = 2.8;
 // millimetre of bezel on both sides. Putting the screws at Y positions above
 // and below the board means the flange can reach as far inboard as it likes —
 // there is no board at that Y to collide with. Side margin drops from 10.0mm
-// to a bare wall and the flange grows anyway.
-// 6.3 around a 2.0mm pilot is a 2.15mm wall — still well clear of the 1.25mm
-// that split on the Forager print, and the 0.35mm it gives up off the radius
-// is what lets the rim come in a full millimetre at each end of the case.
-side_boss_od      = 6.3;
+// to a bare wall, and the flange is free to be whatever the joint needs.
+//
+// 4.5 around a 2.0mm pilot is a 1.25mm wall, which is exactly the section
+// that split on the Forager print. It is back because the boss diameter is
+// the rim's whole cost — every millimetre off it is half a millimetre off the
+// top and bottom bezel — and because this flange is 12mm deep and butts
+// against a screw pad, where Forager's was a stub in open air. If a flange
+// splits on first assembly, this is the number that did it.
+side_boss_od      = 4.5;
 side_pilot_d      = 2.0;   // M2 self-tapping into plastic
 side_clear_d      = 2.9;   // shaft passes freely through the tray wall
 // Flat-top heads, sunk flush in a counterbore on the outside of the tray.
@@ -88,7 +95,7 @@ side_clear_d      = 2.9;   // shaft passes freely through the tray wall
 head_clear_d      = 4.2;   // 3.8mm M2 pan/cheese head plus fit
 head_recess_t     = 1.6;   // full head height — the head disappears
 screw_pad_t       = 1.5;
-flange_w          = 6.0;   // thread engagement depth
+flange_w          = 4.0;   // thread engagement depth
 side_flange_depth = 12.0;  // how far the flange reaches into the tray cavity
 // Clear of the screw pad's inner face, not of the wall's.
 flange_inset      = wall + screw_pad_t + clearance;   // 3.3
@@ -114,10 +121,12 @@ active_h = 84.60;
 // ASSUMPTION: the active area is centred on the glass, and the glass centred
 // on the board. Vendor drawings don't give the offsets. If your panel sits
 // off-centre, shift it with active_offset_* rather than moving the pocket.
-// Measured against the printed bezel: the board sits where it should, but
-// the visible image lands 1.8mm above the window.
+// Measured against the printed bezel: the board sits where it should, the
+// window does not. The first correction went the wrong way — positive moves
+// the window up and up was the direction it needed — so this is that -1.8
+// backed out plus the 1.7 the second print still measured short.
 active_offset_x = 0;
-active_offset_y = -1.8;
+active_offset_y = 1.7;
 
 // The bezel laps 0.5mm over the active area on every side. Sizing the window
 // to exactly active_w/h would expose the glass's inactive margin as a visible
@@ -166,13 +175,22 @@ magnet_d = 29.0;
 magnet_t = 3.0;
 magnet_pocket_d = magnet_d + 0.6;
 magnet_pocket_depth = magnet_t + 0.8;
-magnet_back_t = 1.8;    // material left behind the magnet. 0.8 was thin
-                        // enough to feel like a membrane where the pocket
-                        // hollows the floor out; this is still a strong hold
+magnet_back_t = 1.2;    // material left behind the magnet. 0.8 was thin
+                        // enough to feel like a membrane; this still holds
 
-// The floor swallows the pocket entirely, so nothing intrudes into the cavity
-// and component placement stays unconstrained. Costs ~3.8mm of thickness.
-tray_floor_t = magnet_pocket_depth + magnet_back_t;  // = 5.6
+// The floor used to be thick enough to swallow the pocket everywhere — 5.6mm
+// of it, across the entire back, so that a 3mm disc in the middle intruded on
+// nothing. That is 4mm of case thickness bought for one circle. The floor is
+// the wall thickness now and the pocket lives in a boss standing proud of it
+// on the INSIDE, so the depth is paid for over 34mm of circle instead. What it
+// costs is that the floor is no longer flat: the boss is an obstacle, and the
+// component placements below are asserted clear of it.
+tray_floor_t = wall;   // 1.5
+magnet_boss_h = 3.5;
+magnet_boss_d = magnet_pocket_d + 4.0;   // 2mm ring around the pocket
+
+assert(tray_floor_t + magnet_boss_h >= magnet_pocket_depth + magnet_back_t,
+       "magnet pocket breaks through the boss into the cavity");
 
 // ---- USB-C access ----
 usbc_slot_w = 9.5;
@@ -205,12 +223,11 @@ side_y_lo = corner_r + head_clear_d / 2 + 0.1;   // 5.0
 // worth 2mm of height, and neither version can put the boss over the board.
 rim = side_y_lo + side_boss_od / 2 + 0.1;  // 8.25
 
-// Extra height below the board pocket. The parts do not fit in the footprint
-// the board alone gives: battery, MCU, accelerometer and the harness all live
-// in one layer under a board that spans the whole pocket, and they ran out of
-// floor. This buys that floor back, and it happens to be the chin an instant
-// print has anyway.
-chin = 10.0;
+// Extra height below the board pocket, added on the theory that the parts had
+// run out of floor. The placement assertions below are the test of that, and
+// they pass at zero. Kept as a knob because a part that grows is the reason
+// it would come back.
+chin = 0;
 
 outer_w = pocket_w + 2 * pocket_x_inset;   // ~73.6
 outer_h = pocket_h + 2 * rim + chin;
@@ -288,6 +305,53 @@ assert(side_y_lo + side_boss_od / 2 <= rim,
        "bottom screw boss reaches into the display board");
 assert(side_y_hi - side_boss_od / 2 >= outer_h - rim,
        "top screw boss reaches into the display board");
+
+// ---- Component placement on the tray floor ----
+// Hoisted out of rear_tray() because the floor is no longer flat: the magnet
+// boss stands 3.5mm proud of it, dead centre, and every part in that layer has
+// to miss it. The assertions at the bottom of this block are what enforce it,
+// and they are the reason the chin could go to zero — they, not the header
+// comment, are the claim that the parts fit.
+mcu_x = (outer_w - mcu_w) / 2;   // centred, so USB-C lines up with the slot
+mcu_y = wall + 3;
+
+// Orientation matters more than position: mount the breakout so its X axis
+// lies in the plane of the fridge door, which is the axis both a shake and a
+// door swing act along, and the one the thresholds in
+// firmware/include/Config.h are tuned against.
+//
+// It used to sit 6mm clear of the MCU. 1mm now — the gap it was sitting in is
+// where the magnet boss came up.
+accel_x = wall + 3;
+accel_y = mcu_y + mcu_l + 1.0;
+
+// Battery across the top wall, long edge along case-X, centred in width and
+// flush to the top interior wall. That clears the whole middle and lower half
+// of the floor for the MCU, the accelerometer and the harness, which otherwise
+// had to thread between the cell and a side wall.
+batt_wall_margin = 0.5;
+batt_fit_clearance = 2.0;
+bay_x_outer = batt_w + 2 * batt_wall_margin + batt_fit_clearance;
+bay_y_outer = batt_h + 2 * batt_wall_margin + batt_fit_clearance;
+bay_x = (outer_w - bay_x_outer) / 2;
+bay_y = outer_h - wall - bay_y_outer;
+
+magnet_cx = outer_w / 2;
+magnet_cy = outer_h / 2;
+
+// Gap from a floor-plan rectangle to the magnet boss's outside face. Negative
+// means they overlap.
+function boss_gap(rx, ry, rw, rl) =
+    let (dx = max(rx - magnet_cx, 0, magnet_cx - (rx + rw)),
+         dy = max(ry - magnet_cy, 0, magnet_cy - (ry + rl)))
+    sqrt(dx * dx + dy * dy) - magnet_boss_d / 2;
+
+assert(boss_gap(mcu_x, mcu_y, mcu_w, mcu_l) >= clearance,
+       "MCU footprint runs into the magnet boss");
+assert(boss_gap(accel_x, accel_y, accel_w, accel_l) >= clearance,
+       "accelerometer footprint runs into the magnet boss");
+assert(boss_gap(bay_x, bay_y, bay_x_outer, bay_y_outer) >= clearance,
+       "battery bay runs into the magnet boss");
 
 module rounded_rect(w, h, r) {
     hull() {
@@ -396,33 +460,7 @@ module front_bezel() {
 }
 
 module rear_tray() {
-    // MCU against the bottom wall so its USB-C lines up with the access slot.
-    mcu_fp_x = mcu_w;
-    mcu_fp_y = mcu_l;
     usbc_x_center = outer_w / 2;
-    mcu_x = usbc_x_center - mcu_fp_x / 2;
-    mcu_y = wall + 3;
-
-    // Battery across the top wall, long edge along case-X, centred in width
-    // and flush to the top interior wall. That clears the whole middle and
-    // lower half of the floor for the MCU, the accelerometer and the harness,
-    // which otherwise had to thread between the cell and a side wall.
-    batt_wall_margin = 0.5;
-    batt_fit_clearance = 2.0;
-    bay_x_outer = batt_w + 2 * batt_wall_margin + batt_fit_clearance;
-    bay_y_outer = batt_h + 2 * batt_wall_margin + batt_fit_clearance;
-    bay_x = (outer_w - bay_x_outer) / 2;
-    bay_y = outer_h - wall - bay_y_outer;
-    batt_x = bay_x + batt_wall_margin + batt_fit_clearance / 2;
-    batt_y = bay_y + batt_wall_margin + batt_fit_clearance / 2;
-
-    // Accelerometer below the battery. Orientation matters more than
-    // position: mount it so its X axis lies in the plane of the fridge door,
-    // which is the axis both a shake and a door swing act along, and the one
-    // the thresholds in firmware/include/Config.h are tuned against.
-    accel_x = wall + 3;
-    accel_y = mcu_y + mcu_fp_y + 6.0;
-
     usbc_slot_z = tray_floor_t + 1.0;
 
     difference() {
@@ -447,6 +485,10 @@ module rear_tray() {
             translate([0, 0, tray_floor_t - 0.01])
                 linear_extrude(height = tray_interior_depth + 0.01)
                     screw_pads_2d();
+
+            // The magnet boss, and the only thing standing off the floor.
+            translate([magnet_cx, magnet_cy, tray_floor_t - 0.01])
+                cylinder(d = magnet_boss_d, h = magnet_boss_h + 0.01);
         }
 
         // Magnet pocket, dead centre, opening onto the exterior back face.
@@ -455,7 +497,7 @@ module rear_tray() {
         // printers manage it and the surface is invisible under a magnet
         // either way. If yours sags, pause at Z = magnet_pocket_depth and drop
         // the magnet in — it's adhesive-backed, so it will stay put.
-        translate([outer_w / 2, outer_h / 2, -0.1])
+        translate([magnet_cx, magnet_cy, -0.1])
             cylinder(d = magnet_pocket_d, h = magnet_pocket_depth + 0.1);
 
         // USB-C access, through the bottom wall.
@@ -482,23 +524,24 @@ module rear_tray() {
 
         // Indented on the exterior back, below the magnet pocket. mirror()
         // flips them to read correctly from outside, since model coordinates
-        // are the inside view.
+        // are the inside view. 0.5 deep, not 0.8: the floor here is the wall
+        // thickness now, and 0.8 would leave 0.7mm of skin under the letters.
         translate([outer_w / 2, 14.5, -0.1])
             mirror([1, 0, 0])
-                linear_extrude(height = 0.8)
+                linear_extrude(height = 0.5)
                     text("Polaroid", size = 6.5, font = "Futura:style=Bold",
                          halign = "center", valign = "center");
 
         translate([outer_w / 2, 7.5, -0.1])
             mirror([1, 0, 0])
-                linear_extrude(height = 0.8)
+                linear_extrude(height = 0.5)
                     text("by Max", size = 4.0, font = "Futura:style=Medium",
                          halign = "center", valign = "center");
     }
 
     // Battery bay: a shallow retaining lip, held by friction and tape. Not a
     // closed box — a swollen pouch needs somewhere to go.
-    batt_wall_h = 4.0;
+    batt_wall_h = 4.0;   // still clears the boss, which is 3.5
     batt_wire_gap_w = 8.0;
     translate([bay_x, bay_y, tray_floor_t - 0.01]) {
         difference() {
@@ -513,6 +556,11 @@ module rear_tray() {
         }
     }
 }
+
+// fit_check.scad mates the parts about this plane. `use` imports functions but
+// not variables, and a hand-copied 26.8 in that file is how a fit check quietly
+// starts checking the wrong thing.
+function total_thickness_mm() = total_thickness;
 
 echo(str("outer: ", outer_w, " x ", outer_h, " x ", total_thickness, " mm"));
 

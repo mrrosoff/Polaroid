@@ -84,7 +84,7 @@ build it lands around 21 seconds.
 
 Also in the case: an Adafruit #2011 2000 mAh cell (60 × 36 × 7 mm, and the 7 mm is the point, since
 thickness is the sum of glass, board and battery) and an Adafruit #2809 LIS3DH breakout. The
-finished case is 71.6 × 130.6 × 26.8 mm; the driver board's 101 × 68 mm sets the footprint, so
+finished case is 71.6 × 118.8 × 22.7 mm; the driver board's 101 × 68 mm sets the footprint, so
 battery, MCU and accelerometer all sit behind it in a single layer rather than beside it.
 
 Orient the LIS3DH so its X axis lies in the plane of the fridge door. That is the axis a shake

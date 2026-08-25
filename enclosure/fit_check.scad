@@ -9,7 +9,7 @@ use <polaroid_enclosure.scad>
 
 // The parts are drawn in one XY frame and mate by flipping Z about the plane
 // where the bezel's back face meets the tray's rim.
-mate_z = 26.8;   // total_thickness
+mate_z = total_thickness_mm();
 
 intersection() {
     translate([0, 0, mate_z]) mirror([0, 0, 1]) front_bezel();
