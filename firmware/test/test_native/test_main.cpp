@@ -284,64 +284,60 @@ void test_empty_card_is_mostly_paper() {
     TEST_ASSERT_TRUE(white > (PANEL_WIDTH * PANEL_HEIGHT) / 2);
 }
 
-void test_empty_card_draws_a_hollow_battery() {
+// The battery used to be a hollow outline, on the reasoning that an empty
+// battery should read as empty. The artwork is now Material's
+// battery_charging_full, which is a solid body with the charging bolt knocked
+// out of it — so the thing that carries the meaning is the bolt, not the
+// emptiness, and "is the middle white" is no longer the right question. What
+// still has to hold is that the bolt is a HOLE: if the icon's two subpaths
+// ever stop being XOR-ed, the bolt fills in and the glyph turns into a slab.
+void test_empty_card_bolt_is_knocked_out_of_the_battery() {
     const auto frame = renderEmptyCard();
-    using namespace card::empty_card;
+    using namespace card::art;
 
-    // Outline present on all four sides at the body's vertical midpoint.
-    const std::uint16_t midY = (BODY_Y0 + BODY_Y1) / 2;
-    TEST_ASSERT_EQUAL(INK_RED, pixelAt(frame, BODY_X0 + 1, midY));
-    TEST_ASSERT_EQUAL(INK_RED, pixelAt(frame, BODY_X1 - 2, midY));
-    TEST_ASSERT_EQUAL(INK_RED, pixelAt(frame, (BODY_X0 + BODY_X1) / 2, BODY_Y0 + 1));
-    TEST_ASSERT_EQUAL(INK_RED, pixelAt(frame, (BODY_X0 + BODY_X1) / 2, BODY_Y1 - 2));
+    const std::uint16_t midY = ICON_Y + ICON_H / 2;
+    const std::uint16_t midX = ICON_X + ICON_W / 2;
 
-    // Hollow: an empty battery reads as empty. A filled one would say the
-    // opposite of what the card is for.
-    TEST_ASSERT_EQUAL(INK_WHITE, pixelAt(frame, (BODY_X0 + BODY_X1) / 2, midY));
+    // Body present at both shoulders of the icon's vertical midpoint.
+    TEST_ASSERT_EQUAL(INK_RED, pixelAt(frame, ICON_X + 6, midY));
+    TEST_ASSERT_EQUAL(INK_RED, pixelAt(frame, ICON_X + ICON_W - 7, midY));
 
-    // The nub is what makes the shape a battery rather than a rectangle.
-    TEST_ASSERT_EQUAL(INK_RED, pixelAt(frame, BODY_X1 + 2, (NUB_Y0 + NUB_Y1) / 2));
+    // The bolt crosses the centre line, so paper shows through there.
+    TEST_ASSERT_EQUAL(INK_WHITE, pixelAt(frame, midX, midY));
+
+    // ...and the hole is bounded. Far enough above and below the waist of the
+    // bolt the centre column is solid again, which a filled-in or a runaway
+    // cutout would both fail.
+    TEST_ASSERT_EQUAL(INK_RED, pixelAt(frame, midX, ICON_Y + 20));
+    TEST_ASSERT_EQUAL(INK_RED, pixelAt(frame, midX, ICON_Y + ICON_H - 20));
 }
 
 void test_empty_card_draws_readable_text() {
     const auto frame = renderEmptyCard();
     const std::size_t black = countInk(frame, INK_BLACK);
 
-    // "CHARGE ME" at scale 6 is a few thousand pixels. Zero means the font
-    // lookup silently returned spaces.
+    // "CHARGE ME" set in Jost 700 at 46px is a few thousand pixels. Zero means
+    // the bitmap lookup walked off the end of the array and drew nothing.
     TEST_ASSERT_TRUE(black > 1000);
 }
 
 void test_card_text_is_centred_and_on_panel() {
-    using card::textLeftFor;
-    using card::textWidth;
-    using namespace card::empty_card;
+    using namespace card::art;
 
-    const std::uint16_t left = textLeftFor(LINE, TEXT_SCALE);
-    const std::uint16_t width = textWidth(LINE, TEXT_SCALE);
-
-    TEST_ASSERT_TRUE(left + width <= PANEL_WIDTH);
+    TEST_ASSERT_TRUE(TEXT_X + TEXT_W <= PANEL_WIDTH);
     // Equal margins either side, within a pixel of rounding.
-    TEST_ASSERT_TRUE(PANEL_WIDTH - (left + width) - left <= 1);
+    TEST_ASSERT_TRUE(PANEL_WIDTH - (TEXT_X + TEXT_W) - TEXT_X <= 1);
 }
 
-// The battery glyph belongs in the square image area and the words on the
-// chin, so the card matches the Polaroid frame the photos use.
+// The glyph belongs in the square image area and the words on the chin, so the
+// card matches the Polaroid frame the photos use.
 void test_card_respects_the_polaroid_frame() {
-    using namespace card::empty_card;
+    using namespace card::art;
     constexpr std::uint16_t IMAGE_BOTTOM = 400;  // border + square image, see frame.ts
-    TEST_ASSERT_TRUE(BODY_Y1 < IMAGE_BOTTOM);
-    TEST_ASSERT_TRUE(TEXT_TOP > IMAGE_BOTTOM);
+    TEST_ASSERT_TRUE(ICON_Y + ICON_H < IMAGE_BOTTOM);
+    TEST_ASSERT_TRUE(TEXT_Y > IMAGE_BOTTOM);
 }
 
-void test_font_maps_letters_and_falls_back_to_space() {
-    TEST_ASSERT_EQUAL(1, card::glyphIndex('A'));
-    TEST_ASSERT_EQUAL(1, card::glyphIndex('a'));
-    TEST_ASSERT_EQUAL(26, card::glyphIndex('Z'));
-    TEST_ASSERT_EQUAL(0, card::glyphIndex(' '));
-    TEST_ASSERT_EQUAL(0, card::glyphIndex('!'));
-    TEST_ASSERT_EQUAL(0, card::glyphIndex('7'));
-}
 
 // ------------------------------------------------------------ battery policy
 
@@ -548,11 +544,10 @@ int main(int, char**) {
 
     RUN_TEST(test_empty_card_fills_every_pixel_with_a_legal_ink);
     RUN_TEST(test_empty_card_is_mostly_paper);
-    RUN_TEST(test_empty_card_draws_a_hollow_battery);
+    RUN_TEST(test_empty_card_bolt_is_knocked_out_of_the_battery);
     RUN_TEST(test_empty_card_draws_readable_text);
     RUN_TEST(test_card_text_is_centred_and_on_panel);
     RUN_TEST(test_card_respects_the_polaroid_frame);
-    RUN_TEST(test_font_maps_letters_and_falls_back_to_space);
 
     RUN_TEST(test_battery_thresholds_have_hysteresis);
     RUN_TEST(test_low_warning_comes_before_critical);
