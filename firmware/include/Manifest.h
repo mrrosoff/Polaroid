@@ -106,6 +106,10 @@ struct ManifestDiff {
 /*
  * The manifest is newest-first, so index 0 is the newest photo and advancing
  * walks backwards in time. A shake, a deletion, or a cold boot returns to 0.
+ *
+ * That order is set by Net::fetchManifest keeping the response order, which
+ * the native tests cannot reach -- they build no src/. Reversing it there
+ * would break rotation silently, with nothing to catch it.
  */
 [[nodiscard]] constexpr std::uint16_t nextIndex(std::uint16_t current, std::uint16_t count) {
     return count == 0 ? 0 : static_cast<std::uint16_t>((current + 1) % count);

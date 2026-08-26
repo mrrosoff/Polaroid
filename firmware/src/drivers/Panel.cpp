@@ -12,9 +12,7 @@ namespace {
 
 SPIClass panelSpi(FSPI);
 
-void writePin(int pin, bool level) {
-    digitalWrite(pin, level ? HIGH : LOW);
-}
+void writePin(int pin, bool level) { digitalWrite(pin, level ? HIGH : LOW); }
 
 /*
  * The panel's power-on sequence, transcribed from Waveshare's EPD_4in0e
@@ -53,9 +51,7 @@ constexpr InitCommand INIT_SEQUENCE[] = {
 
 }  // namespace
 
-Panel::~Panel() {
-    powerDown();
-}
+Panel::~Panel() { powerDown(); }
 
 bool Panel::begin() {
     pinMode(PIN_EPD_PWR, OUTPUT);

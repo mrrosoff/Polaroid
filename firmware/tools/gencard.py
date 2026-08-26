@@ -240,6 +240,7 @@ def main():
     header = '''#pragma once
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 
 /*
@@ -265,6 +266,9 @@ inline constexpr std::array<std::uint8_t, {ilen}> ICON_BITS{{{{
 {idata}
 }}}};
 
+static_assert(ICON_BITS.size() == static_cast<std::size_t>(ICON_STRIDE) * ICON_H,
+              "icon bitmap size disagrees with its stride and height");
+
 inline constexpr std::uint16_t TEXT_W = {tw};
 inline constexpr std::uint16_t TEXT_H = {th};
 inline constexpr std::uint16_t TEXT_STRIDE = {tstr};
@@ -274,6 +278,11 @@ inline constexpr std::uint16_t TEXT_Y = {ty};
 inline constexpr std::array<std::uint8_t, {tlen}> TEXT_BITS{{{{
 {tdata}
 }}}};
+
+static_assert(TEXT_BITS.size() == static_cast<std::size_t>(TEXT_STRIDE) * TEXT_H,
+              "text bitmap size disagrees with its stride and height");
+static_assert(ICON_STRIDE * 8 >= ICON_W && TEXT_STRIDE * 8 >= TEXT_W,
+              "stride is too narrow for the bitmap it describes");
 
 }}  // namespace polaroid::card::art
 '''.format(

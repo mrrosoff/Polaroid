@@ -29,9 +29,7 @@ uint32_t computeChecksum(const RtcState& s) {
 
 }  // namespace
 
-RtcState& rtcState() {
-    return state;
-}
+RtcState& rtcState() { return state; }
 
 bool rtcStateValid() {
     return state.magic == RTC_MAGIC && state.checksum == computeChecksum(state);
@@ -43,9 +41,7 @@ void resetRtcState() {
     commitRtcState();
 }
 
-void commitRtcState() {
-    state.checksum = computeChecksum(state);
-}
+void commitRtcState() { state.checksum = computeChecksum(state); }
 
 WakeReason wakeReason() {
     switch (esp_sleep_get_wakeup_cause()) {

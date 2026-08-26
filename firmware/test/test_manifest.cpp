@@ -86,26 +86,6 @@ void test_next_index_survives_empty_device() {
     TEST_ASSERT_EQUAL(0, nextIndex(7, 0));
 }
 
-/*
- * The manifest is newest-first, so index 0 is the newest photo. Everything
- * that wants "show what just arrived" -- a shake, a sync that deleted photos,
- * a cold boot -- sets the index to 0 rather than searching for the maximum
- * uploadedAt. This pins the ordering that makes that true.
- */
-void test_manifest_order_puts_newest_first() {
-    Manifest manifest;
-    manifest.photos.push_back(makePhoto("newest", "h1", 300));
-    manifest.photos.push_back(makePhoto("middle", "h2", 200));
-    manifest.photos.push_back(makePhoto("oldest", "h3", 100));
-
-    TEST_ASSERT_EQUAL_STRING("newest", manifest.photos[0].id.data());
-
-    // Rotation walks backwards in time and wraps to the newest again.
-    TEST_ASSERT_EQUAL(1, nextIndex(0, 3));
-    TEST_ASSERT_EQUAL(2, nextIndex(1, 3));
-    TEST_ASSERT_EQUAL(0, nextIndex(2, 3));
-}
-
 void test_healthy_sync_uses_the_daily_interval() {
     TEST_ASSERT_EQUAL_UINT32(SYNC_INTERVAL_SECONDS, syncInterval(0));
 }
@@ -147,7 +127,6 @@ void runManifestTests() {
     RUN_TEST(test_diff_empty_remote_removes_all_but_fetches_none);
     RUN_TEST(test_next_index_wraps);
     RUN_TEST(test_next_index_survives_empty_device);
-    RUN_TEST(test_manifest_order_puts_newest_first);
     RUN_TEST(test_healthy_sync_uses_the_daily_interval);
     RUN_TEST(test_backoff_doubles_then_caps_at_the_daily_interval);
     RUN_TEST(test_backoff_never_retries_sooner_than_the_previous_step);

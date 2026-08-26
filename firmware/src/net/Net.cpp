@@ -250,6 +250,7 @@ SyncResult Net::sync(Storage& storage) {
 
     const std::uint32_t deadline = millis() + SYNC_TIMEOUT_MS;
     Manifest committed;
+    bool outOfTime = false;
 
     for (const PhotoEntry& photo : remote.photos) {
         const bool needed = std::any_of(
@@ -263,11 +264,19 @@ SyncResult Net::sync(Storage& storage) {
 
         /*
          * POWER: a hard wall on radio time. Whatever landed is committed and
-         * the rest waits for tomorrow — better than holding the radio up until
-         * a bad connection drains the battery.
+         * the rest waits for tomorrow -- better than holding the radio up
+         * until a bad connection drains the battery.
+         *
+         * Stop DOWNLOADING, but keep walking the list. Everything below is
+         * already on flash, and committed is what removeOrphans sweeps
+         * against: breaking out here would leave those photos unnamed by the
+         * manifest and delete them. The list is newest-first, so the entries
+         * that still need fetching are at the front and the ones abandoned by
+         * a break are precisely the good ones.
          */
-        if (static_cast<std::int32_t>(deadline - millis()) <= 0) {
-            break;
+        if (outOfTime || static_cast<std::int32_t>(deadline - millis()) <= 0) {
+            outOfTime = true;
+            continue;
         }
 
         if (downloadPhoto(storage, photo)) {

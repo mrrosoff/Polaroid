@@ -98,6 +98,10 @@ void renderCurrentPhoto() {
  * esp_timer_init(), and a deep-sleep wake is an application startup, so it
  * restarts near zero every wake -- against which every shake looked like a
  * bounce and was discarded.
+ *
+ * esp_clk_rtc_time() lives behind esp_private/, so a framework bump can move
+ * it. If it does, the replacement has to keep counting through deep sleep;
+ * anything measuring uptime brings the bug straight back.
  */
 bool motionTooSoon() {
     RtcState& state = rtcState();
@@ -199,19 +203,6 @@ void setup() {
         state.secondsSinceSync += REFRESH_INTERVAL_SECONDS;
     }
 
-    if (!storage.begin()) {
-        logf("FATAL: no filesystem; sleeping");
-        state.lastExit = EXIT_NO_FILESYSTEM;
-        /*
-         * Nothing to render and nothing to fix at runtime. Sleep rather than
-         * spin — the panel keeps whatever it was already showing.
-         */
-        sleepUntilNextEvent(REFRESH_INTERVAL_SECONDS);
-    }
-    storage.loadManifest(manifest);
-    state.photoCount = manifest.size();
-    logf("filesystem mounted, %u photos on flash", state.photoCount);
-
     /*
      * A missing accelerometer is survivable: nothing asserts INT1, so the timer
      * still rotates photos and every wake looks like a timer wake.
@@ -226,6 +217,23 @@ void setup() {
     if (reason == WakeReason::Motion) {
         motion.clearWakeLatch();
     }
+
+    if (!storage.begin()) {
+        logf("FATAL: no filesystem; sleeping");
+        state.lastExit = EXIT_NO_FILESYSTEM;
+        /*
+         * Nothing to render and nothing to fix at runtime. Sleep rather than
+         * spin -- the panel keeps whatever it was already showing. Through
+         * powerDownAndSleep like every other exit, so the INT1 latch is
+         * cleared: leaving by sleepUntilNextEvent() directly would arm ext0
+         * against a line still asserted by the shake that woke us, and the
+         * device would spin awake until the battery was flat.
+         */
+        powerDownAndSleep(REFRESH_INTERVAL_SECONDS);
+    }
+    storage.loadManifest(manifest);
+    state.photoCount = manifest.size();
+    logf("filesystem mounted, %u photos on flash", state.photoCount);
 
     /*
      * Read before anything draws. The rail sags under a 45 mA refresh, so a
@@ -283,16 +291,19 @@ void setup() {
 
     /*
      * Index 0 is the newest photo, so "back to zero" and "show what just
-     * arrived" are the same instruction. A shake, a cold boot, and a sync that
-     * deleted photos all want it. Everything else advances by one, including a
-     * sync that deleted nothing -- which used to fall through untouched and
-     * spend a refresh redrawing the photo already on screen.
+     * arrived" are the same instruction. A shake and a cold boot want it, and
+     * so does any sync that changed the list: fetching or deleting shifts
+     * every later index, so keeping the old number would point at a different
+     * photo, and advancing by one after fetching exactly one lands back on the
+     * image already on screen.
+     *
+     * Everything else advances by one, walking backwards in time.
      */
     bool toNewest = reason != WakeReason::Timer;
 
     if (syncing) {
         const SyncResult result = runSync();
-        toNewest = toNewest || result.removed > 0;
+        toNewest = toNewest || result.removed > 0 || result.fetched > 0;
     }
 
     state.photoIndex = toNewest ? 0 : nextIndex(state.photoIndex, state.photoCount);

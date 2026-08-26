@@ -103,9 +103,7 @@ bool Storage::removePhoto(std::string_view id) {
     return LittleFS.remove(path.data());
 }
 
-std::size_t Storage::freeBytes() const {
-    return LittleFS.totalBytes() - LittleFS.usedBytes();
-}
+std::size_t Storage::freeBytes() const { return LittleFS.totalBytes() - LittleFS.usedBytes(); }
 
 std::uint16_t Storage::capacityPhotos() const {
     return static_cast<std::uint16_t>(LittleFS.totalBytes() / PANEL_BYTES);

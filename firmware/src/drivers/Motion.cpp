@@ -135,8 +135,6 @@ void Motion::armForSleep() {
     }
 }
 
-void Motion::powerDown() {
-    Wire.end();
-}
+void Motion::powerDown() { Wire.end(); }
 
 }  // namespace polaroid

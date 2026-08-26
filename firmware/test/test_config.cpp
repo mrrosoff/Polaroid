@@ -46,9 +46,7 @@ void test_photo_limit_leaves_room_to_stage_a_download() {
 // The manifest is capped server-side, but the device parses into a fixed
 // budget. If the firmware's limit were the smaller of the two it would
 // silently drop photos the server considers live.
-void test_photo_limit_matches_the_service() {
-    TEST_ASSERT_EQUAL(50, MAX_PHOTOS);
-}
+void test_photo_limit_matches_the_service() { TEST_ASSERT_EQUAL(50, MAX_PHOTOS); }
 
 // The XIAO breaks out exactly eleven GPIO and this design needs exactly
 // eleven, so a duplicate is not a warning anywhere — it is two peripherals

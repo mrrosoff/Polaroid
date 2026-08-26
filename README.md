@@ -27,10 +27,15 @@ on someone else's WiFi for months without anyone thinking about it.
 ## What a wake does
 
 Every wake either syncs or it does not, and then it renders. A shake syncs, because that is the
-gesture. A cold boot syncs, because it has nothing to show. Otherwise the hourly timer advances to
-the next photo and pushes it to the panel with no network at all, except once a day when the sync
-interval comes due. Motion that is not a shake is treated as spurious and goes straight back to
-sleep without spending a refresh.
+gesture, and `INT1` has one source so every motion wake is a shake. A cold boot syncs, because it
+has nothing to show. The hourly timer syncs once a day when the interval comes due and otherwise
+renders with no network at all.
+
+Which photo it renders is one rule: the manifest is newest-first, so index 0 is the newest upload.
+A shake, a cold boot, and a sync that deleted photos all go to index 0. Every other wake advances
+by one, walking backwards in time and wrapping. That includes a wake that synced without deleting
+anything — it used to leave the index untouched and spend a full refresh redrawing the photo
+already on screen.
 
 Shake detection is the LIS3DH's activity threshold, high-pass filtered so gravity does not hold it
 tripped at whatever angle the frame hangs. The interrupt is latched, and reading `INT1_SRC` on wake
@@ -53,7 +58,7 @@ writing a photo and saving the manifest leaves behind.
 ```bash
 cd firmware
 pio run -t upload    # the shipping firmware
-pio test -e native   # 44 tests, no hardware needed
+pio test -e native   # 43 tests, no hardware needed
 ```
 
 There is one firmware environment. `logf()` writes to USB serial whenever a host is attached and
@@ -151,12 +156,19 @@ life out of this, lengthen `REFRESH_INTERVAL_SECONDS` before hunting for leakage
 
 2000 mAh at 85% usable is 1700 mAh, so about 162 days. The 40 µA is the figure to distrust and has
 not been measured on this build. It also assumes the RTC peripheral domain is powered down, and it
-is not: `ext0` runs on that domain, so powering it off silently disables shake-to-wake. Measure the
-sleep current before trusting the five-month number.
+is not: `ext0` runs on that domain, so powering it off silently disables shake-to-wake.
+
+**The table is not what the hardware does.** The first assembled build ran flat in days, not
+months, which implies an average draw around 20 mA against a budget of 10.5 mAh/day. The cause is
+not known. One candidate is now fixed — an error path that armed `ext0` without clearing the `INT1`
+latch would have spun the device awake continuously — but nothing has confirmed that was it.
+Measure the sleep current on the rail before trusting any number in this table.
 
 The firmware holds to a few rules, each with a `POWER:` comment at its site in the source so this
 section stays auditable. Deep sleep is the only resting state, and `setup()` ends in
-`sleepUntilNextEvent()` on every path including error paths. `Panel` and `Net` tear their hardware
+`powerDownAndSleep()` on every path including error paths — that is what clears the `INT1` latch,
+and an exit that skips it arms `ext0` against an asserted line and spins until the battery is
+flat. `Panel` and `Net` tear their hardware
 down in destructors rather than in a function someone has to remember to call, because every early
 return is otherwise a path where forgetting costs the battery. WiFi is deinited rather than merely
 disconnected, since `disconnect()` alone leaves the PHY drawing about 1 mA into deep sleep. WiFi
@@ -173,8 +185,9 @@ stored in SSM at `/website/polaroid/device-secret` and baked into `firmware/incl
 clock worth trusting an `exp` against.
 
 `GET /photos` returns the list, newest first and uncapped, as `{ id, hash, uploadedAt, previewUrl }`.
-The device takes the newest `MAX_PHOTOS`, reverses them into display order, and diffs against its
-local manifest to get fetch, delete and keep sets. Only fetch costs bandwidth.
+The device takes the newest `MAX_PHOTOS` and keeps that order — newest first is display order, so
+index 0 is the newest photo — then diffs against its local manifest to get fetch, delete and keep
+sets. Only fetch costs bandwidth.
 
 `POST /photo` with `{ "id": ... }` returns exactly 120,000 bytes as `application/octet-stream`. The
 request must send `Accept: application/octet-stream`, or API Gateway hands back 160,000 base64
