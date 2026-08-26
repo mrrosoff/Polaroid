@@ -109,6 +109,18 @@ std::uint16_t Storage::capacityPhotos() const {
     return static_cast<std::uint16_t>(LittleFS.totalBytes() / PANEL_BYTES);
 }
 
+bool Storage::hasEverHeldPhoto() const { return LittleFS.exists(SEEDED_PATH); }
+
+void Storage::markPhotoHeld() {
+    if (LittleFS.exists(SEEDED_PATH)) {
+        return;
+    }
+    File file = LittleFS.open(SEEDED_PATH, FILE_WRITE);
+    if (file) {
+        file.close();
+    }
+}
+
 bool Storage::loadManifest(Manifest& out) {
     out.photos.clear();
 

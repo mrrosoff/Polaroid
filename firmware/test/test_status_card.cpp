@@ -136,13 +136,19 @@ void test_no_photos_card_is_drawn_and_differs_from_the_battery_card() {
     TEST_ASSERT_EQUAL(PANEL_BYTES, photos.size());
     TEST_ASSERT_TRUE(photos != battery);
 
-    // Ink on the panel at all, and mostly paper like every other card.
-    const std::size_t red = countInk(photos, INK_RED);
-    const std::size_t black = countInk(photos, INK_BLACK);
-    const std::size_t white = countInk(photos, INK_WHITE);
-    TEST_ASSERT_TRUE(red > 1000);
-    TEST_ASSERT_TRUE(black > 1000);
-    TEST_ASSERT_TRUE(white > (PANEL_WIDTH * PANEL_HEIGHT) / 2);
+    /*
+     * Blue glyph, and no red at all. An empty frame is waiting, not broken, and
+     * red is the ink the battery card owns -- if this one ever comes back red
+     * the two terminal screens stop being distinguishable at a glance.
+     */
+    TEST_ASSERT_TRUE(countInk(photos, INK_BLUE) > 1000);
+    TEST_ASSERT_EQUAL(0, countInk(photos, INK_RED));
+    TEST_ASSERT_TRUE(countInk(photos, INK_BLACK) > 1000);
+    TEST_ASSERT_TRUE(countInk(photos, INK_WHITE) > (PANEL_WIDTH * PANEL_HEIGHT) / 2);
+
+    // ...and the battery card keeps red and has no blue.
+    TEST_ASSERT_TRUE(countInk(battery, INK_RED) > 1000);
+    TEST_ASSERT_EQUAL(0, countInk(battery, INK_BLUE));
 }
 
 void test_no_photos_card_fills_every_pixel_with_a_legal_ink() {

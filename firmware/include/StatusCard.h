@@ -61,21 +61,47 @@ constexpr void bitmapRow(std::span<std::uint8_t> row, std::uint16_t y,
  * blitting loop.
  */
 struct CardArt {
+    config::Ink iconInk;
     std::span<const std::uint8_t> iconBits;
     std::uint16_t iconStride, iconW, iconH, iconX, iconY;
     std::span<const std::uint8_t> textBits;
     std::uint16_t textStride, textW, textH, textX, textY;
 };
 
+/* Designated, because twelve positional fields is a renumbering waiting to go
+ * wrong the next time one is added. */
 inline constexpr CardArt BATTERY_CARD{
-    art::ICON_BITS, art::ICON_STRIDE, art::ICON_W, art::ICON_H, art::ICON_X, art::ICON_Y,
-    art::TEXT_BITS, art::TEXT_STRIDE, art::TEXT_W, art::TEXT_H, art::TEXT_X, art::TEXT_Y};
+    .iconInk = config::INK_RED,
+    .iconBits = art::ICON_BITS,
+    .iconStride = art::ICON_STRIDE,
+    .iconW = art::ICON_W,
+    .iconH = art::ICON_H,
+    .iconX = art::ICON_X,
+    .iconY = art::ICON_Y,
+    .textBits = art::TEXT_BITS,
+    .textStride = art::TEXT_STRIDE,
+    .textW = art::TEXT_W,
+    .textH = art::TEXT_H,
+    .textX = art::TEXT_X,
+    .textY = art::TEXT_Y,
+};
 
+/* Blue, not red: an empty frame is waiting, not broken. */
 inline constexpr CardArt NO_PHOTOS_CARD{
-    art::NO_PHOTOS_ICON_BITS, art::NO_PHOTOS_ICON_STRIDE, art::NO_PHOTOS_ICON_W,
-    art::NO_PHOTOS_ICON_H,    art::NO_PHOTOS_ICON_X,      art::NO_PHOTOS_ICON_Y,
-    art::NO_PHOTOS_TEXT_BITS, art::NO_PHOTOS_TEXT_STRIDE, art::NO_PHOTOS_TEXT_W,
-    art::NO_PHOTOS_TEXT_H,    art::NO_PHOTOS_TEXT_X,      art::NO_PHOTOS_TEXT_Y};
+    .iconInk = config::INK_BLUE,
+    .iconBits = art::NO_PHOTOS_ICON_BITS,
+    .iconStride = art::NO_PHOTOS_ICON_STRIDE,
+    .iconW = art::NO_PHOTOS_ICON_W,
+    .iconH = art::NO_PHOTOS_ICON_H,
+    .iconX = art::NO_PHOTOS_ICON_X,
+    .iconY = art::NO_PHOTOS_ICON_Y,
+    .textBits = art::NO_PHOTOS_TEXT_BITS,
+    .textStride = art::NO_PHOTOS_TEXT_STRIDE,
+    .textW = art::NO_PHOTOS_TEXT_W,
+    .textH = art::NO_PHOTOS_TEXT_H,
+    .textX = art::NO_PHOTOS_TEXT_X,
+    .textY = art::NO_PHOTOS_TEXT_Y,
+};
 
 constexpr bool fitsTheFrame(const CardArt& c) {
     return c.iconX + c.iconW <= config::PANEL_WIDTH && c.iconY + c.iconH < layout::IMAGE_BOTTOM &&
@@ -95,8 +121,7 @@ constexpr void cardRow(std::uint16_t y, std::span<std::uint8_t> row, const CardA
     for (auto& byte : row) {
         byte = static_cast<std::uint8_t>((config::INK_WHITE << 4) | config::INK_WHITE);
     }
-    bitmapRow(row, y, c.iconBits, c.iconStride, c.iconW, c.iconH, c.iconX, c.iconY,
-              config::INK_RED);
+    bitmapRow(row, y, c.iconBits, c.iconStride, c.iconW, c.iconH, c.iconX, c.iconY, c.iconInk);
     bitmapRow(row, y, c.textBits, c.textStride, c.textW, c.textH, c.textX, c.textY,
               config::INK_BLACK);
 }

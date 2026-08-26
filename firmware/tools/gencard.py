@@ -45,10 +45,14 @@ ICON_Y = 90
 TEXT_Y = 455
 FONT_WEIGHT = 700
 
-# prefix, icon path, words, icon height, text height, tracking
+# Preview ink per card. The firmware picks the real ink in StatusCard.h; this
+# only makes the checked-in PNG look like what the panel will actually show.
+INK_RGB = {"red": (190, 50, 45), "blue": (40, 60, 140)}
+
+# prefix, icon path, words, icon height, text height, tracking, preview ink
 CARDS = [
-    ("", "device/battery_charging_full", "CHARGE ME", 290, 46, 6),
-    ("NO_PHOTOS_", "image/photo_library", "ADD PHOTOS", 270, 40, 4),
+    ("", "device/battery_charging_full", "CHARGE ME", 290, 46, 6, "red"),
+    ("NO_PHOTOS_", "image/photo_library", "ADD PHOTOS", 270, 40, 4, "blue"),
 ]
 
 # --- svg path ---------------------------------------------------------------
@@ -213,7 +217,7 @@ def fetch(url):
         return r.read()
 
 
-def build_card(prefix, icon_path, line, icon_h, text_h, tracking, font_bytes):
+def build_card(prefix, icon_path, line, icon_h, text_h, tracking, ink, font_bytes):
     """Rasterizes one card and returns its header block plus a preview image."""
     svg = fetch(ICON_BASE % icon_path).decode()
     path = re.findall(r'd="([^"]*)"', svg)[-1]
@@ -274,7 +278,7 @@ static_assert({p}TEXT_STRIDE * 8 >= {p}TEXT_W, "stride is too narrow for the tex
     # Preview in the real palette: e-ink black is ~18% reflectance and the
     # paper is bone, so previewing against #000/#FFF flatters the result.
     prev = Image.new('RGB', (PANEL_W, PANEL_H), (220, 218, 210))
-    prev.paste(Image.new('RGB', icon.size, (190, 50, 45)), (icon_x, ICON_Y), icon)
+    prev.paste(Image.new('RGB', icon.size, INK_RGB[ink]), (icon_x, ICON_Y), icon)
     prev.paste(Image.new('RGB', text.size, (45, 43, 42)), (text_x, TEXT_Y), text)
     return block, prev
 
@@ -284,10 +288,10 @@ def main():
     font_bytes = fetch(FONT_URL)
 
     blocks, total = [], 0
-    for prefix, icon_path, line, icon_h, text_h, tracking in CARDS:
+    for prefix, icon_path, line, icon_h, text_h, tracking, ink in CARDS:
         print("%s:" % line)
         block, prev = build_card(prefix, icon_path, line, icon_h, text_h,
-                                 tracking, font_bytes)
+                                 tracking, ink, font_bytes)
         blocks.append(block)
         name = (line.lower().replace(' ', '_')) + "_preview.png"
         prev.save(os.path.join(HERE, name))

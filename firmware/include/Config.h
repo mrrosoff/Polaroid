@@ -230,4 +230,12 @@ constexpr uint8_t MAX_PHOTOS = 50;
 constexpr char MANIFEST_PATH[] = "/manifest.json";
 constexpr char PHOTO_DIR[] = "/p";
 
+/*
+ * Written the first time the device has a photo to show, and never removed.
+ * Distinguishes "never had one" from "had some, they were deleted" -- a manifest
+ * file cannot, because a successful sync against an empty server writes an
+ * empty one. On flash rather than in RTC memory so it survives a flat battery.
+ */
+constexpr char SEEDED_PATH[] = "/seeded";
+
 }  // namespace config

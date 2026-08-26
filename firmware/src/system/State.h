@@ -20,6 +20,7 @@ enum PanelContent : uint8_t {
     PANEL_PHOTO = 0,
     PANEL_BATTERY_CARD = 1,
     PANEL_NO_PHOTOS_CARD = 2,
+    PANEL_BLANK = 3,
 };
 
 struct RtcState {

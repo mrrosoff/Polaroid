@@ -66,15 +66,28 @@ void renderCurrentPhoto() {
      * budget on it.
      */
     if (manifest.photos.empty()) {
-        if (state.panelShows == PANEL_NO_PHOTOS_CARD) {
+        /*
+         * A frame that has never held a photo shows nothing at all. It is a
+         * gift, and the first thing anyone sees should be clean paper rather
+         * than an instruction. Once it has held one, empty means they were
+         * deleted, and that is worth saying.
+         */
+        const std::uint8_t want = storage.hasEverHeldPhoto() ? PANEL_NO_PHOTOS_CARD : PANEL_BLANK;
+        if (state.panelShows == want) {
             return;
         }
         Panel panel;
-        if (panel.begin() && panel.displayGenerated(card::noPhotosCardRow)) {
-            state.panelShows = PANEL_NO_PHOTOS_CARD;
+        if (!panel.begin()) {
+            return;
+        }
+        const bool drawn = want == PANEL_BLANK ? panel.displaySolid(config::INK_WHITE)
+                                               : panel.displayGenerated(card::noPhotosCardRow);
+        if (drawn) {
+            state.panelShows = want;
         }
         return;
     }
+    storage.markPhotoHeld();
 
     if (state.photoIndex >= manifest.photos.size()) {
         state.photoIndex = 0;

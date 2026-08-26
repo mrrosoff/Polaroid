@@ -34,6 +34,14 @@ class Storage {
      */
     std::uint16_t removeOrphans(const Manifest& manifest);
 
+    /*
+     * Whether the device has ever had a photo to show. Latches on and never
+     * clears: an empty library then means "they were deleted", not "this is a
+     * new frame", and the two want different screens.
+     */
+    [[nodiscard]] bool hasEverHeldPhoto() const;
+    void markPhotoHeld();
+
     [[nodiscard]] std::size_t freeBytes() const;
     [[nodiscard]] std::uint16_t capacityPhotos() const;
 
