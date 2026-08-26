@@ -10,3 +10,7 @@ firmware/data/manifest.json
 secrets.h
 .scratch/
 .claude/
+
+# Python bytecode from tools/
+__pycache__/
+*.pyc
