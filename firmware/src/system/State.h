@@ -16,6 +16,12 @@ enum class WakeReason : uint8_t {
  * Lives in RTC slow memory: survives deep sleep, costs no flash writes, and
  * flash writes are both slow and finite. Nothing here is worth a wear cycle.
  */
+enum PanelContent : uint8_t {
+    PANEL_PHOTO = 0,
+    PANEL_BATTERY_CARD = 1,
+    PANEL_NO_PHOTOS_CARD = 2,
+};
+
 struct RtcState {
     uint32_t magic;
     uint16_t photoIndex;
@@ -28,13 +34,18 @@ struct RtcState {
      * motionTooSoon().
      */
     uint64_t lastMotionMs;
-    uint8_t lowBattery;
     /*
-     * Set once the "CHARGE ME" card is on the panel. Without it the device
-     * would redraw the card on every wake, spending the last of the battery
-     * repainting a picture that is already there.
+     * What the panel is currently showing, so a wake can tell "this card is
+     * already up" from "something else painted over it".
+     *
+     * One field rather than a flag per card. Two booleans cannot invalidate
+     * each other: the battery card would set its flag, a photo would paint
+     * over it, the flag would still read "drawn", and the next critical wake
+     * would skip the redraw and sleep six hours showing a photo while the
+     * device died -- which is the exact silent death the card exists to
+     * prevent.
      */
-    uint8_t emptyCardDrawn;
+    uint8_t panelShows;
     // Consecutive failed syncs. Drives the retry backoff and the offline icon.
     uint8_t syncFailures;
     uint8_t lastExit;

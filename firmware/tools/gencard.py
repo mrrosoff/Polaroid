@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Rasterizes the empty-battery card's artwork into the 1bpp bitmaps in
-include/CardArt.h, and writes a preview PNG of the finished 400x600 panel.
+"""Rasterizes the status cards' artwork into the 1bpp bitmaps in
+include/CardArt.h, and writes a preview PNG of each finished 400x600 panel.
 
     python3 tools/gencard.py
 
@@ -28,8 +28,8 @@ from PIL import Image, ImageChops, ImageDraw, ImageFont
 HERE = os.path.dirname(os.path.abspath(__file__))
 FIRMWARE = os.path.dirname(HERE)
 
-ICON_URL = ("https://raw.githubusercontent.com/google/material-design-icons/"
-            "master/src/device/battery_charging_full/materialiconsround/24px.svg")
+ICON_BASE = ("https://raw.githubusercontent.com/google/material-design-icons/"
+             "master/src/%s/materialiconsround/24px.svg")
 FONT_URL = ("https://github.com/google/fonts/raw/main/ofl/jost/Jost%5Bwght%5D.ttf")
 
 PANEL_W, PANEL_H = 400, 600
@@ -38,17 +38,18 @@ PANEL_W, PANEL_H = 400, 600
 # this size, so the edges want to be decided once, cleanly, here.
 SS = 8
 
-# --- layout -----------------------------------------------------------------
-# The card mirrors the Polaroid frame the photos use: glyph inside the square
+# Every card mirrors the Polaroid frame the photos use: glyph inside the square
 # image area, words on the chin below it. test_card_respects_the_polaroid_frame
 # asserts exactly this, against IMAGE_BOTTOM = 400.
-ICON_H = 290
 ICON_Y = 90
-TEXT_H = 46
 TEXT_Y = 455
-TEXT_TRACKING = 6      # px at final scale, between glyphs
 FONT_WEIGHT = 700
-LINE = "CHARGE ME"
+
+# prefix, icon path, words, icon height, text height, tracking
+CARDS = [
+    ("", "device/battery_charging_full", "CHARGE ME", 290, 46, 6),
+    ("NO_PHOTOS_", "image/photo_library", "ADD PHOTOS", 270, 40, 4),
+]
 
 # --- svg path ---------------------------------------------------------------
 
@@ -212,30 +213,85 @@ def fetch(url):
         return r.read()
 
 
-def main():
-    print("fetching icon...")
-    svg = fetch(ICON_URL).decode()
+def build_card(prefix, icon_path, line, icon_h, text_h, tracking, font_bytes):
+    """Rasterizes one card and returns its header block plus a preview image."""
+    svg = fetch(ICON_BASE % icon_path).decode()
     path = re.findall(r'd="([^"]*)"', svg)[-1]
-    print("fetching font...")
-    font_bytes = fetch(FONT_URL)
 
-    icon = render_icon(path, ICON_H)
-    text = render_text(LINE, font_bytes, TEXT_H, TEXT_TRACKING, FONT_WEIGHT)
+    icon = render_icon(path, icon_h)
+    text = render_text(line, font_bytes, text_h, tracking, FONT_WEIGHT)
 
     icon_x = (PANEL_W - icon.size[0]) // 2
     text_x = (PANEL_W - text.size[0]) // 2
-    print("icon %dx%d at (%d,%d)" % (icon.size + (icon_x, ICON_Y)))
-    print("text %dx%d at (%d,%d)" % (text.size + (text_x, TEXT_Y)))
+    print("  icon %dx%d at (%d,%d), text %dx%d at (%d,%d)"
+          % (icon.size + (icon_x, ICON_Y) + text.size + (text_x, TEXT_Y)))
 
     if ICON_Y + icon.size[1] >= 400:
-        raise SystemExit("icon runs past the frame's image area at y=400")
+        raise SystemExit("%s: icon runs past the frame\'s image area at y=400" % line)
     if TEXT_Y + text.size[1] > PANEL_H:
-        raise SystemExit("text runs off the bottom of the panel")
+        raise SystemExit("%s: text runs off the bottom of the panel" % line)
     if text.size[0] > PANEL_W:
-        raise SystemExit("text is wider than the panel")
+        raise SystemExit("%s: text is wider than the panel" % line)
 
     icon_bits, icon_stride = pack(icon)
     text_bits, text_stride = pack(text)
+
+    block = '''
+// {icon_path} + "{line}"
+inline constexpr std::uint16_t {p}ICON_W = {iw};
+inline constexpr std::uint16_t {p}ICON_H = {ih};
+inline constexpr std::uint16_t {p}ICON_STRIDE = {istr};
+inline constexpr std::uint16_t {p}ICON_X = {ix};
+inline constexpr std::uint16_t {p}ICON_Y = {iy};
+
+inline constexpr std::array<std::uint8_t, {ilen}> {p}ICON_BITS{{{{
+{idata}
+}}}};
+
+static_assert({p}ICON_BITS.size() == static_cast<std::size_t>({p}ICON_STRIDE) * {p}ICON_H,
+              "icon bitmap size disagrees with its stride and height");
+static_assert({p}ICON_STRIDE * 8 >= {p}ICON_W, "stride is too narrow for the icon");
+
+inline constexpr std::uint16_t {p}TEXT_W = {tw};
+inline constexpr std::uint16_t {p}TEXT_H = {th};
+inline constexpr std::uint16_t {p}TEXT_STRIDE = {tstr};
+inline constexpr std::uint16_t {p}TEXT_X = {tx};
+inline constexpr std::uint16_t {p}TEXT_Y = {ty};
+
+inline constexpr std::array<std::uint8_t, {tlen}> {p}TEXT_BITS{{{{
+{tdata}
+}}}};
+
+static_assert({p}TEXT_BITS.size() == static_cast<std::size_t>({p}TEXT_STRIDE) * {p}TEXT_H,
+              "text bitmap size disagrees with its stride and height");
+static_assert({p}TEXT_STRIDE * 8 >= {p}TEXT_W, "stride is too narrow for the text");
+'''.format(p=prefix, icon_path=icon_path, line=line,
+           iw=icon.size[0], ih=icon.size[1], istr=icon_stride, ix=icon_x, iy=ICON_Y,
+           ilen=len(icon_bits), idata=as_c_array(icon_bits),
+           tw=text.size[0], th=text.size[1], tstr=text_stride, tx=text_x, ty=TEXT_Y,
+           tlen=len(text_bits), tdata=as_c_array(text_bits))
+
+    # Preview in the real palette: e-ink black is ~18% reflectance and the
+    # paper is bone, so previewing against #000/#FFF flatters the result.
+    prev = Image.new('RGB', (PANEL_W, PANEL_H), (220, 218, 210))
+    prev.paste(Image.new('RGB', icon.size, (190, 50, 45)), (icon_x, ICON_Y), icon)
+    prev.paste(Image.new('RGB', text.size, (45, 43, 42)), (text_x, TEXT_Y), text)
+    return block, prev
+
+
+def main():
+    print("fetching font...")
+    font_bytes = fetch(FONT_URL)
+
+    blocks, total = [], 0
+    for prefix, icon_path, line, icon_h, text_h, tracking in CARDS:
+        print("%s:" % line)
+        block, prev = build_card(prefix, icon_path, line, icon_h, text_h,
+                                 tracking, font_bytes)
+        blocks.append(block)
+        name = (line.lower().replace(' ', '_')) + "_preview.png"
+        prev.save(os.path.join(HERE, name))
+        print("  wrote tools/%s" % name)
 
     header = '''#pragma once
 
@@ -246,65 +302,23 @@ def main():
 /*
  * GENERATED by tools/gencard.py. Edit the script, not this file.
  *
- * Icon: Material Icons "battery_charging_full", rounded, Apache 2.0.
- * Type: Jost weight 700, SIL OFL 1.1. Jost is the open Futura, which is what
- *       the enclosure back is engraved in.
+ * Icons: Material Icons, rounded, Apache 2.0.
+ * Type:  Jost weight 700, SIL OFL 1.1. Jost is the open Futura, which is what
+ *        the enclosure back is engraved in.
  *
  * 1bpp, MSB first, whole-byte stride, so a row lookup is a shift and a mask.
- * Two bitmaps rather than a font: the card draws exactly one string.
+ * Bitmaps rather than a font: each card draws exactly one fixed string.
  */
 
 namespace polaroid::card::art {{
-
-inline constexpr std::uint16_t ICON_W = {iw};
-inline constexpr std::uint16_t ICON_H = {ih};
-inline constexpr std::uint16_t ICON_STRIDE = {istr};
-inline constexpr std::uint16_t ICON_X = {ix};
-inline constexpr std::uint16_t ICON_Y = {iy};
-
-inline constexpr std::array<std::uint8_t, {ilen}> ICON_BITS{{{{
-{idata}
-}}}};
-
-static_assert(ICON_BITS.size() == static_cast<std::size_t>(ICON_STRIDE) * ICON_H,
-              "icon bitmap size disagrees with its stride and height");
-
-inline constexpr std::uint16_t TEXT_W = {tw};
-inline constexpr std::uint16_t TEXT_H = {th};
-inline constexpr std::uint16_t TEXT_STRIDE = {tstr};
-inline constexpr std::uint16_t TEXT_X = {tx};
-inline constexpr std::uint16_t TEXT_Y = {ty};
-
-inline constexpr std::array<std::uint8_t, {tlen}> TEXT_BITS{{{{
-{tdata}
-}}}};
-
-static_assert(TEXT_BITS.size() == static_cast<std::size_t>(TEXT_STRIDE) * TEXT_H,
-              "text bitmap size disagrees with its stride and height");
-static_assert(ICON_STRIDE * 8 >= ICON_W && TEXT_STRIDE * 8 >= TEXT_W,
-              "stride is too narrow for the bitmap it describes");
-
+{blocks}
 }}  // namespace polaroid::card::art
-'''.format(
-        iw=icon.size[0], ih=icon.size[1], istr=icon_stride, ix=icon_x, iy=ICON_Y,
-        ilen=len(icon_bits), idata=as_c_array(icon_bits),
-        tw=text.size[0], th=text.size[1], tstr=text_stride, tx=text_x, ty=TEXT_Y,
-        tlen=len(text_bits), tdata=as_c_array(text_bits),
-    )
+'''.format(blocks="".join(blocks))
 
     out_h = os.path.join(FIRMWARE, "include", "CardArt.h")
     with open(out_h, "w") as fh:
         fh.write(header)
-    print("wrote %s (%d bytes of bitmap)" % (out_h, len(icon_bits) + len(text_bits)))
-
-    # Preview in the real palette: e-ink black is ~18% reflectance and the
-    # paper is bone, so previewing against #000/#FFF flatters the result.
-    prev = Image.new('RGB', (PANEL_W, PANEL_H), (220, 218, 210))
-    prev.paste(Image.new('RGB', icon.size, (190, 50, 45)), (icon_x, ICON_Y), icon)
-    prev.paste(Image.new('RGB', text.size, (45, 43, 42)), (text_x, TEXT_Y), text)
-    out_png = os.path.join(HERE, "card_preview.png")
-    prev.save(out_png)
-    print("wrote %s" % out_png)
+    print("wrote %s" % out_h)
 
 
 if __name__ == "__main__":

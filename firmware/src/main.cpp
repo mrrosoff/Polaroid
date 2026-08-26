@@ -53,11 +53,29 @@ bool overlayHook(std::uint16_t row, std::span<std::uint8_t> rowBytes) {
  * looks at yesterday's photo for another hour.
  */
 void renderCurrentPhoto() {
+    RtcState& state = rtcState();
+
+    /*
+     * An empty library has to say so. E-ink holds its last image, so returning
+     * here would leave whatever was drawn last sitting on the panel, and a
+     * frame with nothing in it would look exactly like a frame that had
+     * stopped working.
+     *
+     * Drawn once. The state persists until a sync brings a photo back, and
+     * repainting the identical card on every wake would spend the whole daily
+     * budget on it.
+     */
     if (manifest.photos.empty()) {
+        if (state.panelShows == PANEL_NO_PHOTOS_CARD) {
+            return;
+        }
+        Panel panel;
+        if (panel.begin() && panel.displayGenerated(card::noPhotosCardRow)) {
+            state.panelShows = PANEL_NO_PHOTOS_CARD;
+        }
         return;
     }
 
-    RtcState& state = rtcState();
     if (state.photoIndex >= manifest.photos.size()) {
         state.photoIndex = 0;
     }
@@ -74,7 +92,9 @@ void renderCurrentPhoto() {
         return;
     }
     const bool anyIcon = showLowBatteryIcon || showOfflineIcon;
-    panel.displayFile(storage.fs(), path.data(), anyIcon ? overlayHook : nullptr);
+    if (panel.displayFile(storage.fs(), path.data(), anyIcon ? overlayHook : nullptr)) {
+        state.panelShows = PANEL_PHOTO;
+    }
 }
 
 /*
@@ -246,7 +266,6 @@ void setup() {
          : battery.low    ? " low"
                           : "");
     showLowBatteryIcon = battery.low;
-    state.lowBattery = battery.low ? 1 : 0;
 
     /*
      * From persisted state, not just from runSync: most wakes never sync, and
@@ -255,26 +274,31 @@ void setup() {
     showOfflineIcon = state.syncFailures >= OFFLINE_ICON_AFTER_FAILURES;
 
     /*
-     * Recovered from a charge. Clearing the flag first means the normal path
-     * below repaints a photo over the card without any special casing.
-     */
-    if (state.emptyCardDrawn && battery.percent >= BATTERY_RECOVERY_PERCENT) {
-        state.emptyCardDrawn = 0;
-    }
-
-    /*
      * POWER: below the critical threshold, stop showing photos and say why.
      *
      * E-ink holds its last image with no power at all, so the final refresh is
-     * free forever — which makes it worth spending while there is still charge
-     * to complete one. The alternative is a frozen photo that silently stops
-     * changing, which reads as "the gift broke" rather than "plug it in".
+     * free forever -- which makes it worth spending while there is still
+     * charge to complete one. The alternative is a frozen photo that silently
+     * stops changing, which reads as "the gift broke" rather than "plug it in".
+     *
+     * Hysteresis: enter at CRITICAL_BATTERY_PERCENT, leave at
+     * BATTERY_RECOVERY_PERCENT. Without the gap a cell sitting on the
+     * threshold alternates between a photo and the card every hour, and each
+     * swap costs a full refresh out of a battery that has none to spare.
+     *
+     * This takes precedence over the empty-library card below: it returns
+     * without ever reaching the render, so a device that is both flat and
+     * empty says CHARGE ME, which is the one of the two that is actionable.
      */
-    if (battery.critical) {
-        if (!state.emptyCardDrawn) {
+    const bool batteryCardWins = state.panelShows == PANEL_BATTERY_CARD
+                                     ? battery.percent < BATTERY_RECOVERY_PERCENT
+                                     : battery.critical;
+
+    if (batteryCardWins) {
+        if (state.panelShows != PANEL_BATTERY_CARD) {
             Panel panel;
             if (panel.begin() && panel.displayGenerated(card::emptyBatteryCardRow)) {
-                state.emptyCardDrawn = 1;
+                state.panelShows = PANEL_BATTERY_CARD;
             }
         }
         state.lastExit = EXIT_CRITICAL_BATTERY;

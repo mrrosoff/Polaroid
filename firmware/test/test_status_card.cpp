@@ -14,6 +14,14 @@ namespace {
 
 // Rebuilds the whole card into a full framebuffer so tests can ask questions
 // about the finished image rather than about one row at a time.
+std::vector<std::uint8_t> renderCard(void (*generate)(std::uint16_t, std::span<std::uint8_t>)) {
+    std::vector<std::uint8_t> frame(PANEL_BYTES);
+    for (std::uint16_t y = 0; y < PANEL_HEIGHT; y++) {
+        generate(y, std::span<std::uint8_t>(frame.data() + y * PANEL_ROW_BYTES, PANEL_ROW_BYTES));
+    }
+    return frame;
+}
+
 std::vector<std::uint8_t> renderEmptyCard() {
     std::vector<std::uint8_t> frame(PANEL_BYTES);
     for (std::uint16_t y = 0; y < PANEL_HEIGHT; y++) {
@@ -116,6 +124,39 @@ void test_card_respects_the_polaroid_frame() {
     TEST_ASSERT_TRUE(TEXT_Y > IMAGE_BOTTOM);
 }
 
+/*
+ * The empty-library card is the same machinery with different bits, so what is
+ * worth testing is that it is a DIFFERENT image drawn to the same rules: an
+ * identical frame would mean both cards resolved to the same artwork.
+ */
+void test_no_photos_card_is_drawn_and_differs_from_the_battery_card() {
+    const auto photos = renderCard(card::noPhotosCardRow);
+    const auto battery = renderCard(card::emptyBatteryCardRow);
+
+    TEST_ASSERT_EQUAL(PANEL_BYTES, photos.size());
+    TEST_ASSERT_TRUE(photos != battery);
+
+    // Ink on the panel at all, and mostly paper like every other card.
+    const std::size_t red = countInk(photos, INK_RED);
+    const std::size_t black = countInk(photos, INK_BLACK);
+    const std::size_t white = countInk(photos, INK_WHITE);
+    TEST_ASSERT_TRUE(red > 1000);
+    TEST_ASSERT_TRUE(black > 1000);
+    TEST_ASSERT_TRUE(white > (PANEL_WIDTH * PANEL_HEIGHT) / 2);
+}
+
+void test_no_photos_card_fills_every_pixel_with_a_legal_ink() {
+    const auto frame = renderCard(card::noPhotosCardRow);
+    for (std::uint16_t y = 0; y < PANEL_HEIGHT; y++) {
+        for (std::uint16_t x = 0; x < PANEL_WIDTH; x++) {
+            const std::uint8_t ink = pixelAt(frame, x, y);
+            const bool legal = ink == INK_BLACK || ink == INK_WHITE || ink == INK_YELLOW ||
+                               ink == INK_RED || ink == INK_BLUE || ink == INK_GREEN;
+            TEST_ASSERT_TRUE(legal);
+        }
+    }
+}
+
 void runStatusCardTests() {
     // Unity reports whichever file main() is in otherwise.
     Unity.TestFile = __FILE__;
@@ -125,4 +166,6 @@ void runStatusCardTests() {
     RUN_TEST(test_empty_card_draws_readable_text);
     RUN_TEST(test_card_text_is_centred_and_on_panel);
     RUN_TEST(test_card_respects_the_polaroid_frame);
+    RUN_TEST(test_no_photos_card_is_drawn_and_differs_from_the_battery_card);
+    RUN_TEST(test_no_photos_card_fills_every_pixel_with_a_legal_ink);
 }

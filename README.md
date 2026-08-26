@@ -31,6 +31,16 @@ gesture, and `INT1` has one source so every motion wake is a shake. A cold boot 
 has nothing to show. The hourly timer syncs once a day when the interval comes due and otherwise
 renders with no network at all.
 
+There are two screens that are not photos. Below 5% the panel stops refreshing and shows **CHARGE
+ME**, because a frozen photo reads as "the gift broke" rather than "plug it in"; it clears once the
+battery is back above 25%, the gap being what stops a cell sitting on the threshold swapping every
+hour. An empty library shows **ADD PHOTOS** — a device that has never synced, or one whose photos
+were all deleted. Without it an empty frame would be indistinguishable from a broken one. The
+battery card wins when both apply, since it is the one you can act on.
+
+Both are drawn once and then left alone: the firmware tracks what is on the panel, so a card is
+repainted only when something else has covered it.
+
 Which photo it renders is one rule: the manifest is newest-first, so index 0 is the newest upload.
 A shake, a cold boot, and a sync that deleted photos all go to index 0. Every other wake advances
 by one, walking backwards in time and wrapping. That includes a wake that synced without deleting
@@ -58,7 +68,7 @@ writing a photo and saving the manifest leaves behind.
 ```bash
 cd firmware
 pio run -t upload    # the shipping firmware
-pio test -e native   # 43 tests, no hardware needed
+pio test -e native   # 45 tests, no hardware needed
 ```
 
 There is one firmware environment. `logf()` writes to USB serial whenever a host is attached and
