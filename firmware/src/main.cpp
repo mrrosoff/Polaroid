@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <Wire.h>
+#include <esp_private/esp_clk.h>
 #include <esp_system.h>
 #include <esp_timer.h>
 
@@ -11,17 +12,17 @@
 #include <span>
 #include <string_view>
 
-#include "drivers/Battery.h"
 #include "Config.h"
 #include "Manifest.h"
-#include "drivers/Motion.h"
-#include "net/Net.h"
 #include "Overlay.h"
+#include "StatusCard.h"
+#include "drivers/Battery.h"
+#include "drivers/Motion.h"
 #include "drivers/Panel.h"
+#include "drivers/Storage.h"
+#include "net/Net.h"
 #include "system/Log.h"
 #include "system/State.h"
-#include "StatusCard.h"
-#include "drivers/Storage.h"
 
 using namespace config;
 using namespace polaroid;
@@ -73,36 +74,49 @@ void renderCurrentPhoto() {
     panel.displayFile(storage.fs(), path.data(), anyIcon ? overlayHook : nullptr);
 }
 
-// A wake either syncs or it does not. Shakes sync because that is the gesture;
-// a cold boot syncs because it has nothing to show and a zeroed clock; the
-// timer syncs once its interval is up.
-[[nodiscard]] bool shouldSync(WakeReason reason, MotionEvent event) {
-    if (reason == WakeReason::Motion) {
-        return event == MotionEvent::Shake;
-    }
-    if (reason == WakeReason::ColdBoot) {
+/*
+ * A wake either syncs or it does not. Motion always syncs -- INT1 has one
+ * source and there is no second gesture to tell apart -- a cold boot syncs
+ * because it has nothing to show and a zeroed clock, and the timer syncs once
+ * its interval is up.
+ */
+[[nodiscard]] bool shouldSync(WakeReason reason) {
+    if (reason == WakeReason::Motion || reason == WakeReason::ColdBoot) {
         return true;
     }
     return rtcState().secondsSinceSync >= syncInterval(rtcState().syncFailures);
 }
 
-// Debounce across deep sleep. esp_timer is restored from the RTC counter on
-// wake, so it keeps counting while we're asleep and is the only monotonic clock
-// this device has that survives a two-month nap.
-//
-// Hands bounce; without this one shake reads as four, each costing a sync.
+/*
+ * Debounce across deep sleep: hands bounce, and without this one shake reads
+ * as four, each costing a sync.
+ *
+ * The clock has to be the RTC's. esp_timer_get_time() is microseconds since
+ * esp_timer_init(), which runs early in application startup -- and a
+ * deep-sleep wake IS an application startup, so it restarts near zero every
+ * time. Read against it, `now` was always a few hundred milliseconds and every
+ * motion wake was discarded as a bounce: the device woke on the shake, exited
+ * at EXIT_MOTION_TOO_SOON, and slept again without syncing or refreshing,
+ * which is indistinguishable from never having woken at all.
+ */
 bool motionTooSoon() {
     RtcState& state = rtcState();
-    uint32_t nowMs = static_cast<uint32_t>(esp_timer_get_time() / 1000);
+    const std::uint64_t nowMs = esp_clk_rtc_time() / 1000ULL;
 
-    if (state.bootCount > 1 && nowMs - state.lastMotionMillisSinceBoot < MOTION_DEBOUNCE_MS) {
+    /*
+     * Zero is "no motion wake recorded yet" and must not read as "just now".
+     * The old guard used bootCount > 1 for that, which does not cover the
+     * first motion wake after a cold boot, where the stored value is still
+     * zero.
+     */
+    if (state.lastMotionMs != 0 && nowMs - state.lastMotionMs < MOTION_DEBOUNCE_MS) {
         return true;
     }
-    state.lastMotionMillisSinceBoot = nowMs;
+    state.lastMotionMs = nowMs;
     return false;
 }
 
-void runSync(bool triggeredByShake) {
+SyncResult runSync() {
     SyncResult result;
 
     {
@@ -128,7 +142,7 @@ void runSync(bool triggeredByShake) {
         }
         state.secondsSinceSync = 0;
         showOfflineIcon = state.syncFailures >= OFFLINE_ICON_AFTER_FAILURES;
-        return;
+        return result;
     }
 
     state.syncFailures = 0;
@@ -138,15 +152,7 @@ void runSync(bool triggeredByShake) {
     storage.loadManifest(manifest);
     state.photoCount = manifest.size();
     state.secondsSinceSync = 0;
-
-    if (!triggeredByShake) {
-        return;
-    }
-
-    // The whole point of the gesture: land on the photo that was just
-    // uploaded, not on the next one in rotation. The manifest carries
-    // uploadedAt for every photo, so this needs no extra request.
-    state.photoIndex = newestIndex(manifest);
+    return result;
 }
 
 // Every exit from setup() runs this. Clearing the latches is not optional:
@@ -157,7 +163,6 @@ enum : std::uint8_t {
     EXIT_NO_FILESYSTEM = 2,
     EXIT_CRITICAL_BATTERY = 3,
     EXIT_MOTION_TOO_SOON = 4,
-    EXIT_SPURIOUS_MOTION = 5,
 };
 
 // RTC_DATA_ATTR survives deep sleep but not a reset through EN, so anything
@@ -274,12 +279,12 @@ void setup() {
     // A missing accelerometer is survivable: nothing asserts INT1, so the timer
     // still rotates photos and every wake looks like a timer wake.
     motion.begin();
-    // INT1 has exactly one source, so a motion wake is a shake. Asking the
-    // LIS3DH which detector fired would always answer "none": motion.begin()
-    // above has already rewritten its registers, and that clears the latched
-    // source bits before we could read them.
-    const MotionEvent event =
-        reason == WakeReason::Motion ? MotionEvent::Shake : MotionEvent::None;
+    /*
+     * INT1 has exactly one source, so a motion wake IS a shake. Asking the
+     * LIS3DH which detector fired would always answer "none": motion.begin()
+     * above has already rewritten its registers, and that clears the latched
+     * source bits before we could read them.
+     */
     if (reason == WakeReason::Motion) {
         motion.clearWakeLatch();
     }
@@ -289,7 +294,9 @@ void setup() {
     // it is and would trip the critical threshold early.
     battery = readBattery();
     logf("battery %.2f V, %u%%%s", battery.volts, battery.percent,
-         battery.critical ? " CRITICAL" : battery.low ? " low" : "");
+         battery.critical ? " CRITICAL"
+         : battery.low    ? " low"
+                          : "");
     showLowBatteryIcon = battery.low;
     state.lowBattery = battery.low ? 1 : 0;
 
@@ -325,19 +332,27 @@ void setup() {
         powerDownAndSleep(REFRESH_INTERVAL_SECONDS);
     }
 
-    const bool syncing = shouldSync(reason, event);
+    const bool syncing = shouldSync(reason);
     logf("%s", syncing ? "syncing" : "advancing");
 
+    /*
+     * Index 0 is the newest photo, so "go back to zero" and "show what just
+     * arrived" are the same instruction. Three things ask for it: a shake, a
+     * sync that deleted photos (the old index now points at something else
+     * entirely), and a cold boot, which has no index worth keeping.
+     *
+     * Everything else advances by one. That includes a wake that synced
+     * without deleting anything, which used to fall through untouched and
+     * spend a full 21-second refresh redrawing the photo already on screen.
+     */
+    bool toNewest = reason != WakeReason::Timer;
+
     if (syncing) {
-        runSync(event == MotionEvent::Shake);
-    } else if (reason == WakeReason::Motion) {
-        // A motion wake that is not a shake is spurious. Back to sleep without
-        // spending a refresh on it.
-        state.lastExit = EXIT_SPURIOUS_MOTION;
-        powerDownAndSleep(REFRESH_INTERVAL_SECONDS);
-    } else {
-        state.photoIndex = nextIndex(state.photoIndex, state.photoCount);
+        const SyncResult result = runSync();
+        toNewest = toNewest || result.removed > 0;
     }
+
+    state.photoIndex = toNewest ? 0 : nextIndex(state.photoIndex, state.photoCount);
 
     renderCurrentPhoto();
 

@@ -118,16 +118,19 @@ bool Net::fetchManifest(Manifest& out) {
         if (out.photos.size() >= MAX_PHOTOS) {
             break;
         }
-        PhotoEntry photo = makePhoto(entry["id"] | "", entry["hash"] | "",
-                                     entry["uploadedAt"] | 0u);
+        PhotoEntry photo =
+            makePhoto(entry["id"] | "", entry["hash"] | "", entry["uploadedAt"] | 0u);
         if (!photo.idView().empty()) {
             out.photos.push_back(photo);
         }
     }
 
-    // The response is newest-first so the cap above keeps the newest photos.
-    // Flip to oldest-first, which is display order and the order NORMAL walks.
-    std::reverse(out.photos.begin(), out.photos.end());
+    /*
+     * Left newest-first, which is both what the response gives us and display
+     * order: index 0 is the newest photo, and rotation walks backwards in
+     * time from there. That is what puts a new upload on screen at the next
+     * refresh instead of at the end of a lap through everything else.
+     */
     return true;
 }
 
@@ -233,10 +236,9 @@ SyncResult Net::sync(Storage& storage) {
     Manifest committed;
 
     for (const PhotoEntry& photo : remote.photos) {
-        const bool needed =
-            std::any_of(diff.fetch.begin(), diff.fetch.end(), [&photo](const PhotoEntry& want) {
-                return want.idView() == photo.idView();
-            });
+        const bool needed = std::any_of(
+            diff.fetch.begin(), diff.fetch.end(),
+            [&photo](const PhotoEntry& want) { return want.idView() == photo.idView(); });
 
         if (!needed) {
             committed.photos.push_back(photo);

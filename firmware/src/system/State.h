@@ -20,7 +20,12 @@ struct RtcState {
     uint16_t photoCount;
     uint32_t bootCount;
     uint32_t secondsSinceSync;
-    uint32_t lastMotionMillisSinceBoot;
+    /*
+     * RTC-clock milliseconds at the last accepted motion wake. Zero means none
+     * has ever been recorded. Must be an RTC reading, not esp_timer: see
+     * motionTooSoon().
+     */
+    uint64_t lastMotionMs;
     uint8_t lowBattery;
     // Set once the "CHARGE ME" card is on the panel. Without it the device
     // would redraw the card on every wake, spending the last of the battery

@@ -101,18 +101,24 @@ void test_next_index_survives_empty_device() {
     TEST_ASSERT_EQUAL(0, nextIndex(7, 0));
 }
 
-void test_newest_index_picks_latest_upload() {
+/*
+ * The manifest is newest-first, so index 0 is the newest photo. Everything
+ * that wants "show what just arrived" -- a shake, a sync that deleted photos,
+ * a cold boot -- sets the index to 0 rather than searching for the maximum
+ * uploadedAt. This pins the ordering that makes that true.
+ */
+void test_manifest_order_puts_newest_first() {
     Manifest manifest;
-    manifest.photos.push_back(makePhoto("a", "h", 300));
-    manifest.photos.push_back(makePhoto("b", "h", 100));
-    manifest.photos.push_back(makePhoto("c", "h", 900));
+    manifest.photos.push_back(makePhoto("newest", "h1", 300));
+    manifest.photos.push_back(makePhoto("middle", "h2", 200));
+    manifest.photos.push_back(makePhoto("oldest", "h3", 100));
 
-    TEST_ASSERT_EQUAL(2, newestIndex(manifest));
-}
+    TEST_ASSERT_EQUAL_STRING("newest", manifest.photos[0].id.data());
 
-void test_newest_index_on_empty_manifest() {
-    Manifest manifest;
-    TEST_ASSERT_EQUAL(0, newestIndex(manifest));
+    // Rotation walks backwards in time and wraps to the newest again.
+    TEST_ASSERT_EQUAL(1, nextIndex(0, 3));
+    TEST_ASSERT_EQUAL(2, nextIndex(1, 3));
+    TEST_ASSERT_EQUAL(0, nextIndex(2, 3));
 }
 
 // ------------------------------------------------------------ battery curve
@@ -245,9 +251,8 @@ std::vector<std::uint8_t> renderEmptyCard() {
 }
 
 std::uint8_t pixelAt(const std::vector<std::uint8_t>& frame, std::uint16_t x, std::uint16_t y) {
-    return getPixel(std::span<const std::uint8_t>(frame.data() + y * PANEL_ROW_BYTES,
-                                                  PANEL_ROW_BYTES),
-                    x);
+    return getPixel(
+        std::span<const std::uint8_t>(frame.data() + y * PANEL_ROW_BYTES, PANEL_ROW_BYTES), x);
 }
 
 std::size_t countInk(const std::vector<std::uint8_t>& frame, config::Ink ink) {
@@ -337,7 +342,6 @@ void test_card_respects_the_polaroid_frame() {
     TEST_ASSERT_TRUE(ICON_Y + ICON_H < IMAGE_BOTTOM);
     TEST_ASSERT_TRUE(TEXT_Y > IMAGE_BOTTOM);
 }
-
 
 // ------------------------------------------------------------ battery policy
 
@@ -472,9 +476,9 @@ void test_photo_limit_matches_the_service() {
 // silently fighting over a line on a board with no headers left to probe.
 // Runs against whichever branch of Config.h is compiled in.
 void test_no_pin_is_used_twice() {
-    const std::array pins{PIN_EPD_SCK,  PIN_EPD_MOSI,   PIN_EPD_CS,     PIN_EPD_DC,
-                          PIN_EPD_RST,  PIN_EPD_BUSY,   PIN_EPD_PWR,    PIN_I2C_SCL,
-                          PIN_I2C_SDA,  PIN_ACCEL_INT1, PIN_VBAT_SENSE};
+    const std::array pins{PIN_EPD_SCK, PIN_EPD_MOSI,   PIN_EPD_CS,    PIN_EPD_DC,
+                          PIN_EPD_RST, PIN_EPD_BUSY,   PIN_EPD_PWR,   PIN_I2C_SCL,
+                          PIN_I2C_SDA, PIN_ACCEL_INT1, PIN_VBAT_SENSE};
 
     for (std::size_t i = 0; i < pins.size(); i++) {
         for (std::size_t j = i + 1; j < pins.size(); j++) {
@@ -525,8 +529,7 @@ int main(int, char**) {
 
     RUN_TEST(test_next_index_wraps);
     RUN_TEST(test_next_index_survives_empty_device);
-    RUN_TEST(test_newest_index_picks_latest_upload);
-    RUN_TEST(test_newest_index_on_empty_manifest);
+    RUN_TEST(test_manifest_order_puts_newest_first);
 
     RUN_TEST(test_battery_endpoints);
     RUN_TEST(test_battery_is_monotonic);

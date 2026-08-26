@@ -1,0 +1,11 @@
+# Matches the style already in the tree: 4-space indent, 100 columns, access
+# specifiers offset by 2. Derived from the existing files, not imposed on them.
+BasedOnStyle: Google
+IndentWidth: 4
+ColumnLimit: 100
+AccessModifierOffset: -2
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortCaseLabelsOnASingleLine: true
+DerivePointerAlignment: false
+PointerAlignment: Left
+IncludeBlocks: Preserve

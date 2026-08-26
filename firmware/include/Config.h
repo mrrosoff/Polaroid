@@ -13,7 +13,7 @@ namespace config {
 // Waveshare 4" E Ink Spectra 6 (E6), driver EPD_4in0e. Native portrait.
 constexpr uint16_t PANEL_WIDTH = 400;
 constexpr uint16_t PANEL_HEIGHT = 600;
-constexpr uint32_t PANEL_ROW_BYTES = PANEL_WIDTH / 2;  // 4bpp, two pixels per byte
+constexpr uint32_t PANEL_ROW_BYTES = PANEL_WIDTH / 2;             // 4bpp, two pixels per byte
 constexpr uint32_t PANEL_BYTES = PANEL_ROW_BYTES * PANEL_HEIGHT;  // 120,000
 
 // The six inks, as the controller numbers them. There is nothing in between.

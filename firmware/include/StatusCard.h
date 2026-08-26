@@ -41,8 +41,7 @@ inline constexpr std::uint16_t IMAGE_BOTTOM = 400;
 static_assert(art::ICON_X + art::ICON_W <= config::PANEL_WIDTH);
 static_assert(art::ICON_Y + art::ICON_H < IMAGE_BOTTOM,
               "the glyph has grown out of the frame's image area");
-static_assert(art::TEXT_Y > IMAGE_BOTTOM,
-              "the words have climbed off the chin and into the image");
+static_assert(art::TEXT_Y > IMAGE_BOTTOM, "the words have climbed off the chin and into the image");
 static_assert(art::TEXT_X + art::TEXT_W <= config::PANEL_WIDTH);
 static_assert(art::TEXT_Y + art::TEXT_H <= config::PANEL_HEIGHT);
 
@@ -81,10 +80,10 @@ inline void emptyBatteryCardRow(std::uint16_t y, std::span<std::uint8_t> row) {
 
     // The bolt is a hole in the icon, not a shape drawn over it, so the paper
     // laid down above is what shows through it.
-    bitmapRow(row, y, art::ICON_BITS, art::ICON_STRIDE, art::ICON_W, art::ICON_H,
-              art::ICON_X, art::ICON_Y, INK_RED);
-    bitmapRow(row, y, art::TEXT_BITS, art::TEXT_STRIDE, art::TEXT_W, art::TEXT_H,
-              art::TEXT_X, art::TEXT_Y, INK_BLACK);
+    bitmapRow(row, y, art::ICON_BITS, art::ICON_STRIDE, art::ICON_W, art::ICON_H, art::ICON_X,
+              art::ICON_Y, INK_RED);
+    bitmapRow(row, y, art::TEXT_BITS, art::TEXT_STRIDE, art::TEXT_W, art::TEXT_H, art::TEXT_X,
+              art::TEXT_Y, INK_BLACK);
 }
 
 }  // namespace polaroid::card

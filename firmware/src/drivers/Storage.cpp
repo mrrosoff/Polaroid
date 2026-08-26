@@ -33,7 +33,6 @@ bool Storage::begin() {
     return true;
 }
 
-
 void Storage::photoPath(std::string_view id, std::span<char> out) const {
     snprintf(out.data(), out.size(), "%s/%.*s.bin", PHOTO_DIR, static_cast<int>(id.size()),
              id.data());
@@ -100,7 +99,9 @@ bool Storage::removePhoto(std::string_view id) {
     return LittleFS.remove(path.data());
 }
 
-std::size_t Storage::freeBytes() const { return LittleFS.totalBytes() - LittleFS.usedBytes(); }
+std::size_t Storage::freeBytes() const {
+    return LittleFS.totalBytes() - LittleFS.usedBytes();
+}
 
 std::uint16_t Storage::capacityPhotos() const {
     return static_cast<std::uint16_t>(LittleFS.totalBytes() / PANEL_BYTES);
@@ -122,8 +123,8 @@ bool Storage::loadManifest(Manifest& out) {
     }
 
     for (JsonObject entry : doc["photos"].as<JsonArray>()) {
-        PhotoEntry photo = makePhoto(entry["id"] | "", entry["hash"] | "",
-                                     entry["uploadedAt"] | 0u);
+        PhotoEntry photo =
+            makePhoto(entry["id"] | "", entry["hash"] | "", entry["uploadedAt"] | 0u);
         if (!photo.idView().empty()) {
             out.photos.push_back(photo);
         }

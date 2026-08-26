@@ -15,17 +15,21 @@ namespace polaroid {
 
 using PanelRow = std::array<std::uint8_t, config::PANEL_ROW_BYTES>;
 
-// Per-row patch applied while streaming, used for the low-battery icon.
-// Returning false leaves the row untouched.
+/*
+ * Per-row patch applied while streaming, used for the low-battery icon.
+ * Returning false leaves the row untouched.
+ */
 using RowOverlay = bool (*)(std::uint16_t row, std::span<std::uint8_t> rowBytes);
 
 // Fills a row from nothing, for status cards that have no source file.
 using RowGenerator = void (*)(std::uint16_t row, std::span<std::uint8_t> rowBytes);
 
-// RAII: constructing brings the rail up and runs the init sequence,
-// destructing puts the panel to sleep and cuts the gate. Panel power is the
-// one resource in this firmware that must never leak, so it is tied to a
-// scope rather than to remembering to call a function.
+/*
+ * RAII: constructing brings the rail up and runs the init sequence,
+ * destructing puts the panel to sleep and cuts the gate. Panel power is the
+ * one resource in this firmware that must never leak, so it is tied to a scope
+ * rather than to remembering to call a function.
+ */
 class Panel {
   public:
     Panel() = default;

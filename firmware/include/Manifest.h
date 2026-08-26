@@ -86,30 +86,21 @@ struct ManifestDiff {
         }
     }
 
-    std::copy_if(local.photos.begin(), local.photos.end(), std::back_inserter(diff.remove),
-                 [&remote](const PhotoEntry& have) {
-                     return remote.find(have.idView()) == nullptr;
-                 });
+    std::copy_if(
+        local.photos.begin(), local.photos.end(), std::back_inserter(diff.remove),
+        [&remote](const PhotoEntry& have) { return remote.find(have.idView()) == nullptr; });
 
     return diff;
 }
 
 // NORMAL mode walks the manifest in upload order and wraps. Separated out so
 // the wrap-at-empty case has somewhere to be tested.
+/*
+ * The manifest is newest-first, so index 0 is the newest photo and advancing
+ * walks backwards in time. A shake, a deletion, or a cold boot returns to 0.
+ */
 [[nodiscard]] constexpr std::uint16_t nextIndex(std::uint16_t current, std::uint16_t count) {
     return count == 0 ? 0 : static_cast<std::uint16_t>((current + 1) % count);
-}
-
-// After a shake we want the newest photo on screen, since that is the one the
-// person shaking just uploaded. Ties break toward the later manifest position.
-[[nodiscard]] inline std::uint16_t newestIndex(const Manifest& manifest) {
-    if (manifest.photos.empty()) {
-        return 0;
-    }
-    const auto newest = std::max_element(
-        manifest.photos.begin(), manifest.photos.end(),
-        [](const PhotoEntry& a, const PhotoEntry& b) { return a.uploadedAt <= b.uploadedAt; });
-    return static_cast<std::uint16_t>(std::distance(manifest.photos.begin(), newest));
 }
 
 // Seconds to wait before the next sync attempt. Zero failures is the normal
@@ -119,8 +110,8 @@ struct ManifestDiff {
     if (failures == 0) {
         return config::SYNC_INTERVAL_SECONDS;
     }
-    const std::uint8_t shift = std::min<std::uint8_t>(
-        static_cast<std::uint8_t>(failures - 1), config::MAX_SYNC_FAILURES);
+    const std::uint8_t shift =
+        std::min<std::uint8_t>(static_cast<std::uint8_t>(failures - 1), config::MAX_SYNC_FAILURES);
     const std::uint32_t backoff = config::SYNC_RETRY_BASE_SECONDS << shift;
     return std::min(backoff, config::SYNC_INTERVAL_SECONDS);
 }
