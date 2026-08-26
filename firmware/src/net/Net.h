@@ -16,9 +16,11 @@ struct SyncResult {
     std::uint16_t removed = 0;
 };
 
-// RAII: the destructor tears the radio down. Every early return out of a sync
-// is a path where forgetting to do that costs the battery, so it is tied to
-// the scope rather than to remembering.
+/*
+ * RAII: the destructor tears the radio down. Every early return out of a sync
+ * is a path where forgetting to do that costs the battery, so it is tied to
+ * the scope rather than to remembering.
+ */
 class Net {
   public:
     Net() = default;

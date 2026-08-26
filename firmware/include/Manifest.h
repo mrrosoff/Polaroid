@@ -9,9 +9,11 @@
 
 #include "Config.h"
 
-// Pure logic, no Arduino. This is the part of sync worth testing, so it
-// deliberately knows nothing about HTTP or the filesystem — see
-// test/test_native.
+/*
+ * Pure logic, no Arduino. This is the part of sync worth testing, so it
+ * deliberately knows nothing about HTTP or the filesystem — see
+ * test/test_native.
+ */
 
 namespace polaroid {
 
@@ -61,8 +63,10 @@ struct Manifest {
     [[nodiscard]] std::uint16_t size() const { return static_cast<std::uint16_t>(photos.size()); }
 };
 
-// What a sync actually has to do. Everything not in fetch or remove is already
-// correct on disk and costs nothing.
+/*
+ * What a sync actually has to do. Everything not in fetch or remove is already
+ * correct on disk and costs nothing.
+ */
 struct ManifestDiff {
     std::vector<PhotoEntry> fetch;
     std::vector<PhotoEntry> remove;
@@ -71,9 +75,11 @@ struct ManifestDiff {
     [[nodiscard]] bool empty() const { return fetch.empty() && remove.empty(); }
 };
 
-// A photo is fetched if it is new, or if its hash moved. The hash is over the
-// packed framebuffer rather than the source image, so re-tuning the dither
-// correctly invalidates everything and a no-op re-upload correctly doesn't.
+/*
+ * A photo is fetched if it is new, or if its hash moved. The hash is over the
+ * packed framebuffer rather than the source image, so re-tuning the dither
+ * correctly invalidates everything and a no-op re-upload correctly doesn't.
+ */
 [[nodiscard]] inline ManifestDiff diffManifests(const Manifest& local, const Manifest& remote) {
     ManifestDiff diff;
 
@@ -93,8 +99,10 @@ struct ManifestDiff {
     return diff;
 }
 
-// NORMAL mode walks the manifest in upload order and wraps. Separated out so
-// the wrap-at-empty case has somewhere to be tested.
+/*
+ * NORMAL mode walks the manifest in upload order and wraps. Separated out so
+ * the wrap-at-empty case has somewhere to be tested.
+ */
 /*
  * The manifest is newest-first, so index 0 is the newest photo and advancing
  * walks backwards in time. A shake, a deletion, or a cold boot returns to 0.
@@ -103,9 +111,11 @@ struct ManifestDiff {
     return count == 0 ? 0 : static_cast<std::uint16_t>((current + 1) % count);
 }
 
-// Seconds to wait before the next sync attempt. Zero failures is the normal
-// daily cadence; each consecutive failure doubles a one-hour retry until it
-// reaches that cadence again.
+/*
+ * Seconds to wait before the next sync attempt. Zero failures is the normal
+ * daily cadence; each consecutive failure doubles a one-hour retry until it
+ * reaches that cadence again.
+ */
 [[nodiscard]] constexpr std::uint32_t syncInterval(std::uint8_t failures) {
     if (failures == 0) {
         return config::SYNC_INTERVAL_SECONDS;

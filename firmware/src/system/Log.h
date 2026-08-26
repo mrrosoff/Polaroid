@@ -7,11 +7,14 @@
 
 namespace polaroid {
 
-// POWER: guarded twice. Without POLAROID_BRINGUP this compiles to nothing, and
-// even in a bringup build it stays silent unless a USB host has raised DTR —
-// an unguarded CDC write blocks until its timeout on every wake.
-inline void logf([[maybe_unused]] const char* format, ...) {
-#ifdef POLAROID_BRINGUP
+/*
+ * POWER: the `!Serial` check is the whole guard, and it is enough. On battery
+ * there is no USB host, so HWCDC never reports connected and this returns
+ * before touching the port -- an unguarded CDC write blocks until its timeout
+ * on every wake. Plugged into a host it logs, which is the only way to see
+ * anything on a device with no screen worth reading and no other output.
+ */
+inline void logf(const char* format, ...) {
     if (!Serial) {
         return;
     }
@@ -21,7 +24,6 @@ inline void logf([[maybe_unused]] const char* format, ...) {
     vsnprintf(line, sizeof(line), format, args);
     va_end(args);
     Serial.println(line);
-#endif
 }
 
 }  // namespace polaroid

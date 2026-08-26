@@ -17,10 +17,12 @@ namespace polaroid {
 
 namespace {
 
-// POWER: certificate validation costs a few hundred ms of CPU at ~40 mA and
-// needs a trusted clock, which this device does not have after a two-month
-// sleep. The device token is the real security boundary and the payload is
-// wedding photos, so the connection is encrypted but not pinned.
+/*
+ * POWER: certificate validation costs a few hundred ms of CPU at ~40 mA and
+ * needs a trusted clock, which this device does not have after a two-month
+ * sleep. The device token is the real security boundary and the payload is
+ * wedding photos, so the connection is encrypted but not pinned.
+ */
 void configureClient(WiFiClientSecure& client) {
     client.setInsecure();
     client.setTimeout(HTTP_TIMEOUT_MS / 1000);
@@ -50,9 +52,11 @@ bool Net::connect() {
     WiFi.setSleep(true);
 
     if (std::size(WIFI_NETWORKS) > 0) {
-        // One scan, then the strongest known network — which is the point of
-        // listing both homes. Trying them in order instead would spend a full
-        // connect timeout on the absent one every single sync.
+        /*
+         * One scan, then the strongest known network — which is the point of
+         * listing both homes. Trying them in order instead would spend a full
+         * connect timeout on the absent one every single sync.
+         */
         WiFiMulti multi;
         for (const WifiNetwork& network : WIFI_NETWORKS) {
             multi.addAP(network.ssid, network.password);
@@ -82,8 +86,10 @@ bool Net::connect() {
 }
 
 void Net::disconnect() {
-    // Credentials are kept: false on the second argument. Only sleepUntilNext
-    // wipes them, and only because it also deinits the driver.
+    /*
+     * Credentials are kept: false on the second argument. Only sleepUntilNext
+     * wipes them, and only because it also deinits the driver.
+     */
     WiFi.disconnect(true, false);
     WiFi.mode(WIFI_OFF);
     connected_ = false;
@@ -142,9 +148,11 @@ bool Net::downloadPhoto(Storage& storage, const PhotoEntry& photo) {
     PhotoPath finalPath{};
     storage.photoPath(photo.idView(), finalPath);
 
-    // Download to a temp name and rename on success. A half-written photo must
-    // never be reachable through the manifest — the panel would render the top
-    // half of a wedding and the bottom half of nothing.
+    /*
+     * Download to a temp name and rename on success. A half-written photo must
+     * never be reachable through the manifest — the panel would render the top
+     * half of a wedding and the bottom half of nothing.
+     */
     constexpr const char* tempPath = "/p/.partial";
     storage.fs().remove(tempPath);
 
@@ -158,18 +166,22 @@ bool Net::downloadPhoto(Storage& storage, const PhotoEntry& photo) {
     configureClient(client);
     HTTPClient http;
 
-    // POWER: one request, not a chunked loop. HTTPClient::writeToStream already
-    // streams the body to the file in ~1.4 KB reads, so ranged chunks buy no
-    // RAM -- they only buy a TLS handshake per chunk, and a handshake is one to
-    // two seconds of CPU at ~40 mA.
+    /*
+     * POWER: one request, not a chunked loop. HTTPClient::writeToStream already
+     * streams the body to the file in ~1.4 KB reads, so ranged chunks buy no
+     * RAM -- they only buy a TLS handshake per chunk, and a handshake is one to
+     * two seconds of CPU at ~40 mA.
+     */
     if (!beginRequest(http, client, String(API_BASE_URL) + "/photo")) {
         logf("  beginRequest failed");
     } else {
         http.addHeader("Content-Type", "application/json");
-        // API Gateway only honours the Lambda's isBase64Encoded when the
-        // request's Accept matches one of the API's binaryMediaTypes. Without
-        // this header the framebuffer arrives as 160,000 base64 characters
-        // instead of 120,000 bytes, and every download fails the size check.
+        /*
+         * API Gateway only honours the Lambda's isBase64Encoded when the
+         * request's Accept matches one of the API's binaryMediaTypes. Without
+         * this header the framebuffer arrives as 160,000 base64 characters
+         * instead of 120,000 bytes, and every download fails the size check.
+         */
         http.addHeader("Accept", "application/octet-stream");
         const String requestBody = String("{\"id\":\"") + photo.id.data() + "\"}";
 
@@ -185,10 +197,12 @@ bool Net::downloadPhoto(Storage& storage, const PhotoEntry& photo) {
 
     file.close();
 
-    // Size is the only thing that decides success: a truncated body, a 404 or a
-    // dropped connection all land here as a short file. Stat it only after the
-    // handle is closed — size() on a file still open for writing reports what
-    // it was when opened, which is zero, and threw away every good download.
+    /*
+     * Size is the only thing that decides success: a truncated body, a 404 or a
+     * dropped connection all land here as a short file. Stat it only after the
+     * handle is closed — size() on a file still open for writing reports what
+     * it was when opened, which is zero, and threw away every good download.
+     */
     File written = storage.fs().open(tempPath, FILE_READ);
     const std::size_t bytes = written ? written.size() : 0;
     written.close();
@@ -223,9 +237,11 @@ SyncResult Net::sync(Storage& storage) {
     logf("  remote %u photos, local %u, %u to fetch, %u to drop", remote.size(), local.size(),
          static_cast<unsigned>(diff.fetch.size()), static_cast<unsigned>(diff.remove.size()));
 
-    // Deletes first: on a nearly-full filesystem the space freed here is what
-    // makes room for the fetches, and swapping photos out is the common case
-    // once the couple has filled the device.
+    /*
+     * Deletes first: on a nearly-full filesystem the space freed here is what
+     * makes room for the fetches, and swapping photos out is the common case
+     * once the couple has filled the device.
+     */
     for (const PhotoEntry& photo : diff.remove) {
         if (storage.removePhoto(photo.idView())) {
             result.removed++;
@@ -245,9 +261,11 @@ SyncResult Net::sync(Storage& storage) {
             continue;
         }
 
-        // POWER: a hard wall on radio time. Whatever landed is committed and
-        // the rest waits for tomorrow — better than holding the radio up until
-        // a bad connection drains the battery.
+        /*
+         * POWER: a hard wall on radio time. Whatever landed is committed and
+         * the rest waits for tomorrow — better than holding the radio up until
+         * a bad connection drains the battery.
+         */
         if (static_cast<std::int32_t>(deadline - millis()) <= 0) {
             break;
         }

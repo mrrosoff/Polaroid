@@ -37,7 +37,7 @@ tripped at whatever angle the frame hangs. The interrupt is latched, and reading
 is what releases it.
 
 Networks live in `firmware/include/Secrets.h`, which is gitignored, and the strongest one in range
-wins, so both homes can be listed. There is no captive portal.
+wins, so both homes can be listed.
 
 Failure always means "keep showing what's already there". A sync that cannot reach the server, or
 times out, falls through to a normal render. There is no state where the panel goes blank because
@@ -52,14 +52,15 @@ writing a photo and saving the manifest leaves behind.
 
 ```bash
 cd firmware
-pio run -t upload              # the shipping firmware
-pio run -e bringup -t upload   # same, plus serial logging, and never sleeps
-pio test -e native             # 46 tests, no hardware needed
+pio run -t upload    # the shipping firmware
+pio test -e native   # 44 tests, no hardware needed
 ```
 
-Two environments exist for bench work. `bringup` is the one to use while developing, because deep
-sleep drops USB and a sleeping board can only be reflashed by holding BOOT through a reset.
-`sleep-test` logs but does sleep, which is the only way to watch the wake path.
+There is one firmware environment. `logf()` writes to USB serial whenever a host is attached and
+returns immediately when one is not, so a bench run and a battery run are the same binary.
+
+Deep sleep drops USB, so a sleeping board can only be reflashed by holding BOOT through a reset —
+or by catching the few seconds it is awake.
 
 The image pipeline in Personal-Website has no tests yet.
 

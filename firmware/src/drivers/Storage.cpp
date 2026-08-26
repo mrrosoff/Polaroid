@@ -13,9 +13,11 @@ namespace polaroid {
 bool Storage::begin() {
     mounted_ = LittleFS.begin(true, "/littlefs", 10, "littlefs");
 
-    // format-on-fail does not cover a partition that mounts as corrupt rather
-    // than as blank — which is what unformatted flash looks like on a new
-    // board. Format once, explicitly, and try again.
+    /*
+     * format-on-fail does not cover a partition that mounts as corrupt rather
+     * than as blank — which is what unformatted flash looks like on a new
+     * board. Format once, explicitly, and try again.
+     */
     if (!mounted_) {
         logf("filesystem will not mount; formatting");
         if (LittleFS.format()) {
@@ -62,8 +64,10 @@ std::uint16_t Storage::removeOrphans(const Manifest& manifest) {
         return 0;
     }
 
-    // Collect first, delete after: removing entries while walking the
-    // directory invalidates the iteration.
+    /*
+     * Collect first, delete after: removing entries while walking the
+     * directory invalidates the iteration.
+     */
     std::vector<String> doomed;
     for (File entry = dir.openNextFile(); entry; entry = dir.openNextFile()) {
         const String name = entry.name();
@@ -143,8 +147,10 @@ bool Storage::saveManifest(const Manifest& manifest) {
         entry["uploadedAt"] = photo.uploadedAt;
     }
 
-    // Write-then-rename: a brownout mid-write must not leave a manifest that
-    // parses but disagrees with what's on disk.
+    /*
+     * Write-then-rename: a brownout mid-write must not leave a manifest that
+     * parses but disagrees with what's on disk.
+     */
     const char* temp = "/manifest.tmp";
     File file = LittleFS.open(temp, FILE_WRITE);
     if (!file) {
