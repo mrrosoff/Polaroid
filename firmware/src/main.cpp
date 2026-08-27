@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <driver/gpio.h>
 #include <esp_private/esp_clk.h>
 #include <esp_system.h>
 #include <esp_timer.h>
@@ -209,6 +210,23 @@ enum : std::uint8_t {
 };
 
 [[noreturn]] void powerDownAndSleep(uint32_t seconds) {
+    /*
+     * The battery is read at the top of setup() and logged there too, but that
+     * line is written about 0.6 s into the wake and USB takes roughly a second
+     * to enumerate -- so with a host attached it is always dropped before
+     * anyone can see it. By here the wake has been up for the length of a
+     * refresh and the port is reliably open.
+     *
+     * POWER: costs nothing on battery. logf returns before touching the port
+     * when no host is connected, which on a frame on a fridge is always.
+     */
+    logf("sleeping %lus | battery %.2f V, %u%% | wake=%s exit=%u",
+         static_cast<unsigned long>(seconds), battery.volts, battery.percent,
+         wakeReason() == WakeReason::Motion  ? "motion"
+         : wakeReason() == WakeReason::Timer ? "timer"
+                                             : "cold",
+         rtcState().lastExit);
+
     motion.armForSleep();
     motion.powerDown();
 
@@ -219,6 +237,15 @@ enum : std::uint8_t {
 
 void setup() {
     Serial.begin(115200);
+
+    /*
+     * Release the pads held through deep sleep. Without this PIN_EPD_PWR stays
+     * latched low and the panel never powers up again: the frame would go dark
+     * permanently on the second wake.
+     */
+    gpio_deep_sleep_hold_dis();
+    gpio_hold_dis(static_cast<gpio_num_t>(PIN_EPD_PWR));
+    gpio_hold_dis(static_cast<gpio_num_t>(PIN_STATUS_LED));
 
     if (!rtcStateValid()) {
         resetRtcState();

@@ -53,9 +53,9 @@ void test_photo_limit_matches_the_service() { TEST_ASSERT_EQUAL(50, MAX_PHOTOS);
 // silently fighting over a line on a board with no headers left to probe.
 // Runs against whichever branch of Config.h is compiled in.
 void test_no_pin_is_used_twice() {
-    const std::array pins{PIN_EPD_SCK, PIN_EPD_MOSI,   PIN_EPD_CS,    PIN_EPD_DC,
-                          PIN_EPD_RST, PIN_EPD_BUSY,   PIN_EPD_PWR,   PIN_I2C_SCL,
-                          PIN_I2C_SDA, PIN_ACCEL_INT1, PIN_VBAT_SENSE};
+    const std::array pins{PIN_EPD_SCK, PIN_EPD_MOSI,   PIN_EPD_CS,     PIN_EPD_DC,
+                          PIN_EPD_RST, PIN_EPD_BUSY,   PIN_EPD_PWR,    PIN_I2C_SCL,
+                          PIN_I2C_SDA, PIN_ACCEL_INT1, PIN_VBAT_SENSE, PIN_STATUS_LED};
 
     for (std::size_t i = 0; i < pins.size(); i++) {
         for (std::size_t j = i + 1; j < pins.size(); j++) {

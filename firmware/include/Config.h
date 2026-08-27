@@ -75,9 +75,18 @@ constexpr int PIN_ACCEL_INT1 = 2;  // D1, RTC-capable
 constexpr int PIN_VBAT_SENSE = 1;  // D0, ADC1_CH0
 
 /*
- * Nothing left over. The XIAO's remaining pads are the USB differential pair
- * and the internal flash/PSRAM bus, which must not be touched. Kept so the
- * sleep path can iterate it without a special case.
+ * POWER: the XIAO's own user LED, and nothing here drives it. It is ACTIVE
+ * LOW, so a floating pad lights it, which is what a bare GPIO does through
+ * deep sleep unless it is held. Driven high and held before sleeping.
+ */
+constexpr int PIN_STATUS_LED = 21;
+
+/*
+ * Nothing left over that floats. The XIAO's remaining pads are the USB
+ * differential pair and the internal flash/PSRAM bus, which must not be
+ * touched -- and PIN_STATUS_LED, which is handled explicitly on the sleep path
+ * because it needs a driven level, not a pull. Kept so that path can iterate
+ * this without a special case.
  */
 constexpr std::array<int, 0> UNUSED_PINS{};
 
@@ -173,10 +182,19 @@ constexpr uint32_t MOTION_SETTLE_TIMEOUT_MS = 2'000;
 constexpr float VBAT_DIVIDER_RATIO = 2.0f;
 
 /*
- * Measured, not nominal. Correct this once against a multimeter and the
- * percentage curve lines up for the rest of the device's life.
+ * The divider reads low. With the charger terminated -- so the cell is at the
+ * 4.20 V a Li-ion charge IC stops at -- this build reported 4.10 V, and
+ * 4.20 / 4.10 is where this number comes from.
+ *
+ * A scale factor is the right shape for the error: the likeliest cause is
+ * tolerance on the two 1 MOhm divider legs, and 1% parts stack to about the 2%
+ * seen here. It corrects the reading, not the curve -- the knots below map
+ * capacity to voltage and nothing here measures capacity.
+ *
+ * Inferred from the charge IC, not read off a meter. A multimeter across the
+ * battery terminals would make it a measurement, and is worth doing once.
  */
-constexpr float VBAT_ADC_CALIBRATION = 1.0f;
+constexpr float VBAT_ADC_CALIBRATION = 1.024f;
 
 /*
  * LiPo discharge curve is flat from 4.2 down to about 3.5 and then falls off a

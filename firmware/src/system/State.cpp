@@ -1,6 +1,7 @@
 #include "State.h"
 
 #include <WiFi.h>
+#include <driver/gpio.h>
 #include <esp_sleep.h>
 #include <esp_wifi.h>
 
@@ -74,6 +75,30 @@ WakeReason wakeReason() {
      * and ext0 runs on that domain. Assert it back on before arming.
      */
     esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);
+
+    /*
+     * POWER: a GPIO stops being driven the moment the chip deep sleeps unless
+     * it is explicitly held, and two pads here must not float.
+     *
+     * PIN_EPD_PWR gates the panel driver board's rail. Released, the gate
+     * floats and the rail can sit powered for the whole sleep -- which is the
+     * one thing this pin exists to prevent.
+     *
+     * PIN_STATUS_LED is the XIAO's user LED, active low, so a floating pad
+     * lights it and leaves it lit until the next wake.
+     *
+     * Both are driven here rather than relying on whatever ran earlier: not
+     * every path into this function has constructed a Panel, so PIN_EPD_PWR
+     * may never have been an output at all.
+     */
+    pinMode(PIN_EPD_PWR, OUTPUT);
+    digitalWrite(PIN_EPD_PWR, LOW);
+    pinMode(PIN_STATUS_LED, OUTPUT);
+    digitalWrite(PIN_STATUS_LED, HIGH);  // active low: high is off
+
+    gpio_hold_en(static_cast<gpio_num_t>(PIN_EPD_PWR));
+    gpio_hold_en(static_cast<gpio_num_t>(PIN_STATUS_LED));
+    gpio_deep_sleep_hold_en();
 
     /*
      * POWER: every unused pin gets an explicit pull. A floating CMOS input

@@ -32,7 +32,8 @@ void configureClient(WiFiClientSecure& client) {
     if (!http.begin(client, url)) {
         return false;
     }
-    http.addHeader("Authorization", String("Bearer ") + POLAROID_DEVICE_TOKEN);
+    http.addHeader("Authorization",
+                   String("Bearer ") + POLAROID_DEVICE_ID + "." + POLAROID_DEVICE_SECRET);
     http.setTimeout(HTTP_TIMEOUT_MS);
     http.setConnectTimeout(HTTP_TIMEOUT_MS);
     return true;
