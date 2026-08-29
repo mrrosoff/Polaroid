@@ -318,6 +318,21 @@ void setup() {
      * The motion wake is deliberately left armed so the result can be read by
      * shaking the device rather than waiting out an hour-long timer.
      */
+    /*
+     * Wait for a USB host before sleeping, or this build is unreadable: it
+     * sleeps a few hundred ms after boot, and enumeration takes about a
+     * second, so the battery line would always be written into a void.
+     *
+     * Costs about 4 s of wake per hour on battery, where no host ever answers.
+     * At ~40 mA that is near 1 mAh/day -- a tenth of the design budget, but
+     * under half a percent of the ~240 mAh/day this build exists to measure,
+     * so it cannot mask the thing it is looking for.
+     */
+    for (int waited = 0; waited < 80 && !Serial; waited++) {
+        delay(50);
+    }
+    delay(200);
+
     state.lastExit = EXIT_NORMAL;
     powerDownAndSleep(REFRESH_INTERVAL_SECONDS);
 #endif
