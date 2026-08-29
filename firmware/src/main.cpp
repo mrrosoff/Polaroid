@@ -318,6 +318,22 @@ void setup() {
      * The motion wake is deliberately left armed so the result can be read by
      * shaking the device rather than waiting out an hour-long timer.
      */
+#ifdef POLAROID_PANEL_ONCE
+    /*
+     * Bring the panel up and shut it down once, on a cold boot only, then
+     * never again -- which is what the full firmware did during run 3, since
+     * an empty library draws its blank screen once and returns early forever
+     * after. If a single power-up is what leaves milliamps flowing, this
+     * reproduces it and sleep-only does not.
+     */
+    if (reason == WakeReason::ColdBoot) {
+        Panel panel;
+        if (panel.begin()) {
+            panel.displaySolid(config::INK_WHITE);
+        }
+    }
+#endif
+
     /*
      * Wait for a USB host before sleeping, or this build is unreadable: it
      * sleeps a few hundred ms after boot, and enumeration takes about a
