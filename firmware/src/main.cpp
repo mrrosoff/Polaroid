@@ -301,6 +301,26 @@ void setup() {
      * it is and would trip the critical threshold early.
      */
     battery = readBattery();
+
+#ifdef POLAROID_SLEEP_ONLY
+    /*
+     * DIAGNOSTIC: stop here. Everything above this line is the accelerometer
+     * (6 uA by datasheet, plus the breakout's 130 uA LED) and one ADC read.
+     * Nothing below it runs: no filesystem, no radio, no panel rail, no
+     * refresh.
+     *
+     * So if the sleep current is still milliamps in this build, it is not
+     * anything this firmware drives -- it is the XIAO, its regulator, the
+     * charge IC, or the wiring, and no code change will reach it. If it falls
+     * to microamps, the load is one of the things skipped here and it can be
+     * added back one at a time.
+     *
+     * The motion wake is deliberately left armed so the result can be read by
+     * shaking the device rather than waiting out an hour-long timer.
+     */
+    state.lastExit = EXIT_NORMAL;
+    powerDownAndSleep(REFRESH_INTERVAL_SECONDS);
+#endif
     logf("battery %.2f V, %u%%%s", battery.volts, battery.percent,
          battery.critical ? " CRITICAL"
          : battery.low    ? " low"
