@@ -68,6 +68,17 @@ constexpr int PIN_EPD_RST = 7;    // D8
 constexpr int PIN_EPD_BUSY = 6;   // D5
 constexpr int PIN_EPD_PWR = 5;    // D4
 
+/*
+ * POWER: every pin that reaches the panel driver board, gate included. All of
+ * them are driven low and held through deep sleep -- see sleepUntilNextEvent,
+ * which explains why the gate alone is not enough.
+ *
+ * SCK and MOSI are 43 and 44, outside the RTC range, so they hold only because
+ * gpio_deep_sleep_hold_en() covers digital pads too.
+ */
+constexpr std::array<int, 7> EPD_PINS{PIN_EPD_SCK, PIN_EPD_MOSI, PIN_EPD_CS, PIN_EPD_DC,
+                                      PIN_EPD_RST, PIN_EPD_BUSY, PIN_EPD_PWR};
+
 constexpr int PIN_I2C_SCL = 4;     // D3
 constexpr int PIN_I2C_SDA = 3;     // D2
 constexpr int PIN_ACCEL_INT1 = 2;  // D1, RTC-capable

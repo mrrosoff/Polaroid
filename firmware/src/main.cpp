@@ -239,12 +239,14 @@ void setup() {
     Serial.begin(115200);
 
     /*
-     * Release the pads held through deep sleep. Without this PIN_EPD_PWR stays
-     * latched low and the panel never powers up again: the frame would go dark
-     * permanently on the second wake.
+     * Release the pads held through deep sleep. Without this they stay latched
+     * low and the panel never powers up or talks again: the frame would go
+     * dark permanently on the second wake.
      */
     gpio_deep_sleep_hold_dis();
-    gpio_hold_dis(static_cast<gpio_num_t>(PIN_EPD_PWR));
+    for (int pin : EPD_PINS) {
+        gpio_hold_dis(static_cast<gpio_num_t>(pin));
+    }
     gpio_hold_dis(static_cast<gpio_num_t>(PIN_STATUS_LED));
 
     if (!rtcStateValid()) {
