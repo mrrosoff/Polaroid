@@ -49,51 +49,6 @@ void test_pixel_write_past_edge_is_ignored() {
     }
 }
 
-void test_overlay_skips_rows_outside_the_icon() {
-    Row row{};
-    row.fill(0x66);
-
-    TEST_ASSERT_FALSE(lowBatteryOverlay(0, row));
-    TEST_ASSERT_FALSE(lowBatteryOverlay(icon::Y - 1, row));
-    TEST_ASSERT_FALSE(lowBatteryOverlay(icon::Y + icon::HEIGHT, row));
-
-    for (std::size_t i = 0; i < row.size(); i++) {
-        TEST_ASSERT_EQUAL_HEX8(0x66, row[i]);
-    }
-}
-
-void test_overlay_draws_border_on_its_first_row() {
-    Row row{};
-    row.fill(0x66);
-
-    TEST_ASSERT_TRUE(lowBatteryOverlay(icon::Y, row));
-
-    // Top edge of the battery outline is solid ink across its width.
-    for (uint16_t i = 0; i < 20; i++) {
-        TEST_ASSERT_EQUAL(INK_RED, getPixel(row, icon::X + i));
-    }
-    // Untouched outside the icon box.
-    TEST_ASSERT_EQUAL(INK_GREEN, getPixel(row, icon::X - 2));
-}
-
-// The photo underneath is dithered noise. Without clearing to white first the
-// battery's interior fills with whatever colour the sky happened to be.
-void test_overlay_clears_paper_under_the_icon_interior() {
-    Row row{};
-    row.fill(0x66);
-
-    TEST_ASSERT_TRUE(lowBatteryOverlay(icon::Y + 5, row));
-
-    TEST_ASSERT_EQUAL(INK_RED, getPixel(row, icon::X));
-    TEST_ASSERT_EQUAL(INK_WHITE, getPixel(row, icon::X + 5));
-    TEST_ASSERT_EQUAL(INK_WHITE, getPixel(row, icon::X + 10));
-}
-
-void test_overlay_stays_inside_the_panel() {
-    TEST_ASSERT_TRUE(icon::X + icon::WIDTH <= PANEL_WIDTH);
-    TEST_ASSERT_TRUE(icon::Y + icon::HEIGHT <= PANEL_HEIGHT);
-}
-
 void test_offline_overlay_skips_rows_outside_the_icon() {
     Row row{};
     row.fill(0x66);
@@ -105,14 +60,6 @@ void test_offline_overlay_skips_rows_outside_the_icon() {
     for (std::size_t i = 0; i < row.size(); i++) {
         TEST_ASSERT_EQUAL_HEX8(0x66, row[i]);
     }
-}
-
-// Both icons live in the chin and are drawn on the same refresh, so they must
-// not share a column.
-void test_offline_and_battery_icons_do_not_overlap() {
-    const bool offlineIsLeft = offline_icon::X + offline_icon::WIDTH <= icon::X;
-    const bool batteryIsLeft = icon::X + icon::WIDTH <= offline_icon::X;
-    TEST_ASSERT_TRUE(offlineIsLeft || batteryIsLeft);
 }
 
 void test_offline_overlay_draws_the_tallest_bar_on_every_row() {
@@ -144,12 +91,7 @@ void runOverlayTests() {
     RUN_TEST(test_pixel_round_trip_both_nibbles);
     RUN_TEST(test_pixel_write_does_not_disturb_neighbour);
     RUN_TEST(test_pixel_write_past_edge_is_ignored);
-    RUN_TEST(test_overlay_skips_rows_outside_the_icon);
-    RUN_TEST(test_overlay_draws_border_on_its_first_row);
-    RUN_TEST(test_overlay_clears_paper_under_the_icon_interior);
-    RUN_TEST(test_overlay_stays_inside_the_panel);
     RUN_TEST(test_offline_overlay_skips_rows_outside_the_icon);
-    RUN_TEST(test_offline_and_battery_icons_do_not_overlap);
     RUN_TEST(test_offline_overlay_draws_the_tallest_bar_on_every_row);
     RUN_TEST(test_offline_overlay_draws_a_slash);
 }

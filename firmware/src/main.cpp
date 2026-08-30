@@ -34,18 +34,10 @@ Motion motion;
 Manifest manifest;
 BatteryReading battery;
 
-bool showLowBatteryIcon = false;
 bool showOfflineIcon = false;
 
 bool overlayHook(std::uint16_t row, std::span<std::uint8_t> rowBytes) {
-    bool touched = false;
-    if (showLowBatteryIcon) {
-        touched |= lowBatteryOverlay(row, rowBytes);
-    }
-    if (showOfflineIcon) {
-        touched |= offlineOverlay(row, rowBytes);
-    }
-    return touched;
+    return showOfflineIcon ? offlineOverlay(row, rowBytes) : false;
 }
 
 /*
@@ -105,8 +97,7 @@ void renderCurrentPhoto() {
     if (!panel.begin()) {
         return;
     }
-    const bool anyIcon = showLowBatteryIcon || showOfflineIcon;
-    if (panel.displayFile(storage.fs(), path.data(), anyIcon ? overlayHook : nullptr)) {
+    if (panel.displayFile(storage.fs(), path.data(), showOfflineIcon ? overlayHook : nullptr)) {
         state.panelShows = PANEL_PHOTO;
     }
 }
@@ -307,7 +298,6 @@ void setup() {
          battery.critical ? " CRITICAL"
          : battery.low    ? " low"
                           : "");
-    showLowBatteryIcon = battery.low;
 
     /*
      * From persisted state, not just from runSync: most wakes never sync, and
