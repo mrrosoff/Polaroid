@@ -218,8 +218,12 @@ constexpr float VBAT_LOW_V = 3.50f;
 constexpr float VBAT_EMPTY_V = 3.30f;
 
 /*
- * Show the corner icon below this. Composited onto a refresh we were already
- * doing, so it costs nothing extra.
+ * Nothing is drawn at this threshold; it only marks the reading "low" in the
+ * per-wake log, which is worth having while reading a discharge run. There is
+ * deliberately no on-screen warning between here and CRITICAL_BATTERY_PERCENT
+ * -- the corner icon that used to live here was intrusive on every refresh for
+ * a quarter of the battery's life, so the CHARGE ME card is the first and only
+ * thing the couple sees.
  */
 constexpr uint8_t LOW_BATTERY_PERCENT = 15;
 
