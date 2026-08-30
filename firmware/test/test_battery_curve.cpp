@@ -31,9 +31,16 @@ void test_battery_knots_are_not_linear() {
     TEST_ASSERT_EQUAL(15, voltageToPercent(3.50f));
 }
 
-void test_battery_low_threshold_fires_before_empty() {
-    TEST_ASSERT_TRUE(voltageToPercent(3.50f) <= LOW_BATTERY_PERCENT);
-    TEST_ASSERT_TRUE(voltageToPercent(3.75f) > LOW_BATTERY_PERCENT);
+/*
+ * The knots are the curve. Asserting them directly is the only way a change to
+ * one gets noticed -- the shape between them is interpolation, but these four
+ * points are the fit to a real LiPo and are not arbitrary.
+ */
+void test_battery_curve_hits_its_knots() {
+    TEST_ASSERT_EQUAL(100, voltageToPercent(VBAT_FULL_V));
+    TEST_ASSERT_EQUAL(40, voltageToPercent(VBAT_NOMINAL_V));
+    TEST_ASSERT_EQUAL(15, voltageToPercent(VBAT_LOW_V));
+    TEST_ASSERT_EQUAL(0, voltageToPercent(VBAT_EMPTY_V));
 }
 
 void runBatteryCurveTests() {
@@ -42,5 +49,5 @@ void runBatteryCurveTests() {
     RUN_TEST(test_battery_endpoints);
     RUN_TEST(test_battery_is_monotonic);
     RUN_TEST(test_battery_knots_are_not_linear);
-    RUN_TEST(test_battery_low_threshold_fires_before_empty);
+    RUN_TEST(test_battery_curve_hits_its_knots);
 }

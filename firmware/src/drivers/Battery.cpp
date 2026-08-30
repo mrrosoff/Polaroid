@@ -22,7 +22,6 @@ BatteryReading readBattery() {
     return BatteryReading{
         .volts = volts,
         .percent = percent,
-        .low = percent <= LOW_BATTERY_PERCENT,
         .critical = percent <= CRITICAL_BATTERY_PERCENT,
     };
 }

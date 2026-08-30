@@ -10,7 +10,6 @@ namespace polaroid {
 struct BatteryReading {
     float volts;
     uint8_t percent;
-    bool low;
     bool critical;
 };
 

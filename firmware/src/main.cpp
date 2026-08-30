@@ -295,9 +295,7 @@ void setup() {
      */
     battery = readBattery();
     logf("battery %.2f V, %u%%%s", battery.volts, battery.percent,
-         battery.critical ? " CRITICAL"
-         : battery.low    ? " low"
-                          : "");
+         battery.critical ? " CRITICAL" : "");
 
     /*
      * From persisted state, not just from runSync: most wakes never sync, and

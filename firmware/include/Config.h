@@ -218,16 +218,6 @@ constexpr float VBAT_LOW_V = 3.50f;
 constexpr float VBAT_EMPTY_V = 3.30f;
 
 /*
- * Nothing is drawn at this threshold; it only marks the reading "low" in the
- * per-wake log, which is worth having while reading a discharge run. There is
- * deliberately no on-screen warning between here and CRITICAL_BATTERY_PERCENT
- * -- the corner icon that used to live here was intrusive on every refresh for
- * a quarter of the battery's life, so the CHARGE ME card is the first and only
- * thing the couple sees.
- */
-constexpr uint8_t LOW_BATTERY_PERCENT = 15;
-
-/*
  * Below this the device draws the "CHARGE ME" card once and stops refreshing.
  * Must leave enough charge to finish that last refresh: a rail that sags
  * mid-refresh leaves a half-drawn frame on the panel forever. 5% of 2000 mAh

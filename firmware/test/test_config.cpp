@@ -15,10 +15,6 @@ void test_battery_thresholds_have_hysteresis() {
     TEST_ASSERT_TRUE(BATTERY_RECOVERY_PERCENT - CRITICAL_BATTERY_PERCENT >= 10);
 }
 
-void test_low_warning_comes_before_critical() {
-    TEST_ASSERT_TRUE(LOW_BATTERY_PERCENT > CRITICAL_BATTERY_PERCENT);
-}
-
 // There has to be real charge left at the critical threshold, or the final
 // refresh browns out and freezes a half-drawn frame on the panel forever.
 void test_critical_threshold_leaves_charge_for_one_last_refresh() {
@@ -97,7 +93,6 @@ void runConfigTests() {
     // Unity reports whichever file main() is in otherwise.
     Unity.TestFile = __FILE__;
     RUN_TEST(test_battery_thresholds_have_hysteresis);
-    RUN_TEST(test_low_warning_comes_before_critical);
     RUN_TEST(test_critical_threshold_leaves_charge_for_one_last_refresh);
     RUN_TEST(test_empty_check_interval_is_slower_than_normal_refresh);
     RUN_TEST(test_photo_limit_leaves_room_to_stage_a_download);
