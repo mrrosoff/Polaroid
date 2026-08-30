@@ -124,12 +124,20 @@ for leakage.
 
 1700 mAh usable gives about 162 days.
 
-**The table is not what the hardware does.** The first assembled build ran flat in days, implying
-an average draw near 20 mA. The cause is unknown; one candidate is fixed (an error path that armed
-`ext0` without clearing the `INT1` latch would spin the device awake continuously). Measure the
-sleep rail before trusting any number here. The 40 µA is unverified and assumes the RTC peripheral
-domain is off, which it is not — `ext0` runs there, so powering it down silently disables
-shake-to-wake.
+**The table assumes every panel pin is held low through deep sleep, which is a recent fix.**
+Cutting the gate is not enough by itself. A GPIO stops being driven the moment the chip sleeps
+unless explicitly held, so the six data and control lines float — and a floating pin at the driver
+board's input forward-biases its ESD diodes and feeds the board's rail through that input,
+powering the panel through the back door the gate was closed to prevent.
+
+Measured, three runs of about 18 hours each from 4.22 V: never touching the panel cost **20 mV**;
+one power-up and refresh, then nothing for the rest of the run, cost **140 mV**. The refresh itself
+is worth 0.26 mAh, so seven-eighths of that was the board being fed all night through its own
+inputs. This is why the first assembled build ran flat in days rather than months.
+
+The 40 µA line is still unverified, and it assumes the RTC peripheral domain is off, which it is
+not — `ext0` runs there, so powering it down silently disables shake-to-wake. Put a meter on the
+rail before trusting it.
 
 Firmware rules that protect the budget each carry a `POWER:` comment at their site in the source.
 
