@@ -9,12 +9,6 @@
 
 #include "Config.h"
 
-/*
- * Pure logic, no Arduino. This is the part of sync worth testing, so it
- * deliberately knows nothing about HTTP or the filesystem — see
- * test/test_native.
- */
-
 namespace polaroid {
 
 inline constexpr std::size_t ID_CAPACITY = 16;

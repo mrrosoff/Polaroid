@@ -8,7 +8,7 @@
 
 /*
  * Nibble-level compositing, applied to one row at a time while the framebuffer
- * streams to the panel. Pure — see test/test_native.
+ * streams to the panel.
  */
 
 namespace polaroid {

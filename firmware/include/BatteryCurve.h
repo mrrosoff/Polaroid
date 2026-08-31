@@ -11,8 +11,6 @@ namespace polaroid {
  * mapping voltage linearly onto 0-100% reports "half full" for about six weeks
  * and then dies in three days. These knots are a piecewise fit to the real
  * curve at the ~10 mA average this device pulls.
- *
- * Pure function, no ADC, so the shape is testable — test/test_native.
  */
 inline uint8_t voltageToPercent(float volts) {
     using namespace config;
