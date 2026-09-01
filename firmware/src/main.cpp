@@ -23,6 +23,7 @@
 #include "net/Net.h"
 #include "system/Log.h"
 #include "system/State.h"
+#include "system/VoltageLog.h"
 
 using namespace config;
 using namespace polaroid;
@@ -217,6 +218,36 @@ enum : std::uint8_t {
          : wakeReason() == WakeReason::Timer ? "timer"
                                              : "cold",
          rtcState().lastExit);
+
+    /*
+     * Every exit from setup() comes through here, so this is the one place a
+     * wake is guaranteed to be sampled exactly once. On the no-filesystem exit
+     * the append simply fails -- there is nothing to write to, and nothing to
+     * be done about it here.
+     */
+    const bool host = static_cast<bool>(Serial);
+    vlog::append(rtcState().bootCount, esp_clk_rtc_time() / 1000ULL,
+                 static_cast<std::uint16_t>(battery.volts * 1000.0f + 0.5f),
+                 wakeReason() == WakeReason::Motion  ? 'm'
+                 : wakeReason() == WakeReason::Timer ? 't'
+                                                     : 'c',
+                 host);
+    /*
+     * Dump only to a host, which by definition means the cable is in and the
+     * samples from here on are the contaminated kind anyway. 'c' clears the
+     * log, to start a fresh measurement run.
+     */
+    if (host) {
+        vlog::dump();
+        const std::uint32_t until = millis() + 1500;
+        while (millis() < until) {
+            if (Serial.available() && Serial.read() == 'c') {
+                vlog::clear();
+                break;
+            }
+            delay(10);
+        }
+    }
 
     motion.armForSleep();
     motion.powerDown();

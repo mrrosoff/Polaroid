@@ -261,4 +261,17 @@ constexpr char PHOTO_DIR[] = "/p";
  */
 constexpr char SEEDED_PATH[] = "/seeded";
 
+/*
+ * Hourly battery samples, so the discharge can be measured from the frame
+ * itself rather than over USB -- where the charger holds the terminal up and
+ * the reading means nothing. See src/system/VoltageLog.h.
+ *
+ * 64 KB is about three months of hourly rows. At the cap the file rotates to
+ * VLOG_PREV_PATH and a new one starts, so history stays bounded at two files
+ * and the frame keeps logging for as long as it runs.
+ */
+constexpr char VLOG_PATH[] = "/vlog.csv";
+constexpr char VLOG_PREV_PATH[] = "/vlog.1";
+constexpr std::size_t VLOG_MAX_BYTES = 64 * 1024;
+
 }  // namespace config
