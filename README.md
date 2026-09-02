@@ -108,10 +108,10 @@ there is nothing large to allocate and an initialized die would only add sleep c
 
 ## Power
 
-**Sleep current is not the thing to optimize — the panel refresh is.** At an hourly refresh,
-pushing pixels costs about nine times what sleeping costs. Every µA out of deep sleep buys half a
-day; every refresh not taken buys about seven. Lengthen `REFRESH_INTERVAL_SECONDS` before hunting
-for leakage.
+**Measured: about 5.1 mA, roughly two weeks per charge.** Forty-four hourly samples over 43.4
+hours, taken on battery by the frame itself, give a discharge of 1.698 ± 0.043 mV/h — some
+122 mAh/day, or 16 days on 2000 mAh and 14 on the 1700 usable. That is twelve times the budget
+below, and the budget is kept here only because the gap between the two is the interesting part.
 
 | Line item | Current | Duration | Per day |
 | --- | ---: | ---: | ---: |
@@ -120,26 +120,45 @@ for leakage.
 | Daily sync | 120 mA | 10 s | 0.33 mAh |
 | Shake sync, about 3 a week | 120 mA | 15 s | 0.21 mAh |
 | Battery divider | 1.65 µA | 24 h | 0.04 mAh |
-| | | total | 10.5 mAh/day |
+| | | design total | 10.5 mAh/day |
+| | | **measured** | **~122 mAh/day** |
 
-1700 mAh usable gives about 162 days.
+**Nothing the firmware does is measurable.** A diagnostic build that boots, reads the battery
+and sleeps — no radio, no panel rail, no refresh — discharges at 1.648 ± 0.410 mV/h against the
+full firmware's 1.698 ± 0.043. The difference is 0.05 mV/h against an error bar eight times
+that. Twenty-four panel refreshes a day, the syncs and the filesystem together move the rate
+by less than the noise.
 
-**The table assumes every panel pin is held low through deep sleep, which is a recent fix.**
-Cutting the gate is not enough by itself. A GPIO stops being driven the moment the chip sleeps
-unless explicitly held, so the six data and control lines float — and a floating pin at the driver
-board's input forward-biases its ESD diodes and feeds the board's rail through that input,
-powering the panel through the back door the gate was closed to prevent.
+So the missing ~5 mA is continuous and is not driven by this code, and **no firmware change
+will reach it.** Lengthening `REFRESH_INTERVAL_SECONDS`, skipping refreshes or cutting syncs
+each buy approximately nothing. The remaining suspects are hardware: the panel board drawing
+through something other than the `PIN_EPD_PWR` gate, or the XIAO's own regulator or charge IC.
+Unplugging the panel physically and re-running the log for a day would separate the two.
 
-Measured, three runs of about 18 hours each from 4.22 V: never touching the panel cost **20 mV**;
-one power-up and refresh, then nothing for the rest of the run, cost **140 mV**. The refresh itself
-is worth 0.26 mAh, so seven-eighths of that was the board being fed all night through its own
-inputs. This is why the first assembled build ran flat in days rather than months.
+**Measure it with the on-flash log, never over USB.** The ADC divider sits on the battery
+terminal, so a terminal on a charger reads the charger: three samples eleven seconds apart once
+read 4229, 4147 and 4143 mV, and the low one was the only one taken with the cable out. An
+86 mV spread against 4.8 mV of ADC noise. Every wake appends `boot,rtc_ms,mv,wake,host` to
+`/vlog.csv`; plug in and shake to dump it, send `c` to clear.
 
-The 40 µA line is still unverified, and it assumes the RTC peripheral domain is off, which it is
-not — `ext0` runs there, so powering it down silently disables shake-to-wake. Put a meter on the
-rail before trusting it.
+Read it by fitting a slope through the `host=0` rows, ordered by `rtc_ms`. Do not difference
+two endpoints — a single reading carries about 4.8 mV of noise, while a day of hourly points
+resolves the drain to roughly ±0.15 mA. Order by `rtc_ms`, not `bootCount`: a reflash resets
+the boot counter while the RTC clock keeps running, so grouping by boot splices unrelated
+stretches together.
 
-Firmware rules that protect the budget each carry a `POWER:` comment at their site in the source.
+**Every panel pin is held low through deep sleep.** Cutting the gate is not enough by itself:
+a GPIO stops being driven the moment the chip sleeps unless explicitly held, so the six data
+and control lines float — and a floating pin at the driver board's input forward-biases its ESD
+diodes and feeds the board's rail through that input, powering the panel through the back door
+the gate was closed to prevent. The hold is correct and stays, though the measurements that
+originally motivated it (20 mV against 140 mV over 18-hour runs) were taken by plugging in and
+shaking, and are not trustworthy at that scale.
+
+The 40 µA sleep line was never verified, and it assumes the RTC peripheral domain is off, which
+it is not — `ext0` runs there, so powering it down silently disables shake-to-wake. Given the
+measured 5 mA, that line is wrong by more than two orders of magnitude and a meter on the rail
+is the only thing that will say why.
 
 ## Protocol
 
