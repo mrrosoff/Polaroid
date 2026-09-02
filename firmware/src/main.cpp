@@ -42,6 +42,18 @@ bool overlayHook(std::uint16_t row, std::span<std::uint8_t> rowBytes) {
 }
 
 /*
+ * Identifies a rendered image. The hash is the object's ETag, so it moves when
+ * the picture behind an id is replaced, and two ids never collide on it.
+ */
+std::uint32_t panelKey(const PhotoEntry& photo, bool overlay) {
+    std::uint32_t hash = 2166136261u;
+    for (char c : photo.hashView()) {
+        hash = (hash ^ static_cast<std::uint8_t>(c)) * 16777619u;
+    }
+    return hash ^ (overlay ? 0x9E3779B9u : 0u);
+}
+
+/*
  * Renders whatever is at rtcState().photoIndex. Every failure here is
  * non-fatal: e-ink holds its last image, so the worst case is that the couple
  * looks at yesterday's photo for another hour.
@@ -87,6 +99,17 @@ void renderCurrentPhoto() {
         state.photoIndex = 0;
     }
 
+    /*
+     * A refresh the viewer cannot see is still a refresh. With one photo in the
+     * library the index stays at zero, so every timer wake would repaint the
+     * identical image: 24 full 21-second refreshes a day, flashing the panel
+     * for nothing. Skip when what we would draw is already up.
+     */
+    const std::uint32_t key = panelKey(manifest.photos[state.photoIndex], showOfflineIcon);
+    if (state.panelShows == PANEL_PHOTO && state.panelPhotoKey == key) {
+        return;
+    }
+
     std::array<char, 48> path{};
     storage.photoPath(manifest.photos[state.photoIndex].idView(), path);
 
@@ -100,6 +123,7 @@ void renderCurrentPhoto() {
     }
     if (panel.displayFile(storage.fs(), path.data(), showOfflineIcon ? overlayHook : nullptr)) {
         state.panelShows = PANEL_PHOTO;
+        state.panelPhotoKey = key;
     }
 }
 
