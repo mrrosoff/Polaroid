@@ -59,6 +59,7 @@ inline void append(std::uint32_t bootCount, std::uint64_t rtcMs, std::uint16_t m
 
     File f = LittleFS.open(config::VLOG_PATH, FILE_APPEND);
     if (!f) {
+        Serial.println("vlog: append open failed");
         return;
     }
     char line[64];
@@ -91,6 +92,15 @@ inline void dumpOne(const char* path) {
  * that run began. Oldest file first, so the two read as one series.
  */
 inline void dump() {
+    /*
+     * Filesystem state before the rows. A dump with no rows is ambiguous
+     * otherwise -- an unmounted filesystem, a missing file and an empty one all
+     * print the same nothing.
+     */
+    Serial.printf(
+        "vlog: fs %u/%u used, csv=%d prev=%d\n", static_cast<unsigned>(LittleFS.usedBytes()),
+        static_cast<unsigned>(LittleFS.totalBytes()), LittleFS.exists(config::VLOG_PATH) ? 1 : 0,
+        LittleFS.exists(config::VLOG_PREV_PATH) ? 1 : 0);
     Serial.println("vlog: boot,rtc_ms,mv,wake,host");
     dumpOne(config::VLOG_PREV_PATH);
     dumpOne(config::VLOG_PATH);
