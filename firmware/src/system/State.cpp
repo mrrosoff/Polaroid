@@ -77,39 +77,22 @@ WakeReason wakeReason() {
     esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);
 
     /*
-     * POWER: this is the largest term in the whole budget, and it is not the
-     * refresh.
+     * POWER: the board's VCC is on the 3V3 rail -- PIN_EPD_PWR drives a switch
+     * on the board, not its supply -- so it is powered even while we sleep, and
+     * a pin held at 0 V against its input pull-up sinks current forever.
+     * High-impedance costs nothing and is safe here only because the board has
+     * its own supply; floating into an unpowered board would feed it through
+     * its ESD diodes instead.
      *
-     * A GPIO stops being driven the moment the chip deep sleeps unless it is
-     * explicitly held. Cutting PIN_EPD_PWR is therefore not enough on its own:
-     * the six data and control lines go with it, and a floating pin sitting at
-     * a driver board's input forward-biases that board's ESD diodes and feeds
-     * its rail through the input pin -- powering the panel through the back
-     * door the gate was closed to prevent.
-     *
-     * Measured, three runs of ~18 h each from 4.22 V. Never touching the panel
-     * cost 20 mV. ONE power-up and refresh, then nothing for the rest of the
-     * run, cost 140 mV. The refresh itself is worth about 0.26 mAh; the other
-     * seven-eighths was the board being fed all night through its own inputs.
-     *
-     * So every pin that reaches the panel is driven low and held, not just the
-     * gate. PIN_STATUS_LED joins them because the XIAO's user LED is active
-     * low and a floating pad lights it.
-     *
-     * Driven here rather than in Panel::powerDown, which only runs on wakes
-     * that actually drew something -- and a wake that draws nothing still has
-     * to sleep with the pins in a defined state.
+     * PIN_STATUS_LED is still driven: it is the XIAO's own LED, active low, and
+     * a floating pad lights it.
      */
     for (int pin : EPD_PINS) {
-        pinMode(pin, OUTPUT);
-        digitalWrite(pin, LOW);
+        gpio_hold_dis(static_cast<gpio_num_t>(pin));
+        pinMode(pin, INPUT);
     }
     pinMode(PIN_STATUS_LED, OUTPUT);
     digitalWrite(PIN_STATUS_LED, HIGH);  // active low: high is off
-
-    for (int pin : EPD_PINS) {
-        gpio_hold_en(static_cast<gpio_num_t>(pin));
-    }
     gpio_hold_en(static_cast<gpio_num_t>(PIN_STATUS_LED));
     gpio_deep_sleep_hold_en();
 

@@ -29,12 +29,14 @@ struct RtcState {
     uint16_t photoCount;
     uint32_t bootCount;
     uint32_t secondsSinceSync;
+
     /*
      * RTC-clock milliseconds at the last accepted motion wake. Zero means none
      * has ever been recorded. Must be an RTC reading, not esp_timer: see
      * motionTooSoon().
      */
     uint64_t lastMotionMs;
+
     /*
      * What the panel is currently showing, so a wake can tell "this card is
      * already up" from "something else painted over it".
@@ -47,6 +49,7 @@ struct RtcState {
      * prevent.
      */
     uint8_t panelShows;
+
     /*
      * Identifies the image currently on the panel, so a wake that would repaint
      * the same one can skip it. Derived from the photo's hash rather than its
@@ -56,7 +59,9 @@ struct RtcState {
      * The offline icon is mixed in because it is part of what is drawn -- going
      * offline has to repaint, or the icon never appears.
      */
+
     uint32_t panelPhotoKey;
+    
     // Consecutive failed syncs. Drives the retry backoff and the offline icon.
     uint8_t syncFailures;
     uint8_t lastExit;
