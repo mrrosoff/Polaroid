@@ -108,10 +108,10 @@ there is nothing large to allocate and an initialized die would only add sleep c
 
 ## Power
 
-**Measured: about 5.1 mA, roughly two weeks per charge.** Forty-four hourly samples over 43.4
-hours, taken on battery by the frame itself, give a discharge of 1.698 ± 0.043 mV/h — some
-122 mAh/day, or 16 days on 2000 mAh and 14 on the 1700 usable. That is twelve times the budget
-below, and the budget is kept here only because the gap between the two is the interesting part.
+**Measured: about 2.2 mA, roughly a month per charge.** The frame logs its own battery hourly,
+on battery, and the discharge is read by fitting a slope through those samples. 176 clean
+points over 175 h give 0.725 ± 0.013 mV/h. The design budget below predicts 162 days; it is
+kept because the gap between it and reality is the interesting part.
 
 | Line item | Current | Duration | Per day |
 | --- | ---: | ---: | ---: |
@@ -121,44 +121,46 @@ below, and the budget is kept here only because the gap between the two is the i
 | Shake sync, about 3 a week | 120 mA | 15 s | 0.21 mAh |
 | Battery divider | 1.65 µA | 24 h | 0.04 mAh |
 | | | design total | 10.5 mAh/day |
-| | | **measured** | **~122 mAh/day** |
+| | | **measured** | **~52 mAh/day** |
 
-**Nothing the firmware does is measurable.** A diagnostic build that boots, reads the battery
-and sleeps — no radio, no panel rail, no refresh — discharges at 1.648 ± 0.410 mV/h against the
-full firmware's 1.698 ± 0.043. The difference is 0.05 mV/h against an error bar eight times
-that. Twenty-four panel refreshes a day, the syncs and the filesystem together move the rate
-by less than the noise.
+**Nothing the firmware *does* is measurable.** A diagnostic build that boots, reads the battery
+and sleeps — no radio, no panel rail, no refresh — discharges at the same rate as the full
+firmware, 1.648 ± 0.410 against 1.698 ± 0.043 mV/h. Twenty-four refreshes a day, the syncs and
+the filesystem together move the rate by less than the noise. Lengthening
+`REFRESH_INTERVAL_SECONDS` or skipping refreshes buys nothing.
 
-So the missing ~5 mA is continuous and is not driven by this code, and **no firmware change
-will reach it.** Lengthening `REFRESH_INTERVAL_SECONDS`, skipping refreshes or cutting syncs
-each buy approximately nothing. The remaining suspects are hardware: the panel board drawing
-through something other than the `PIN_EPD_PWR` gate, or the XIAO's own regulator or charge IC.
-Unplugging the panel physically and re-running the log for a day would separate the two.
+**What the firmware *leaves behind* is measurable, and it was most of the drain.** The panel
+board's VCC is wired to the 3V3 rail — `PIN_EPD_PWR` drives a switch on the board, not its
+supply — so the board is powered while we sleep and pulls its inputs up to its own VCC. Holding
+the six data and control lines at 0 V sank current through those pull-ups continuously. Over
+the same 4127–4210 mV window:
+
+| panel pins in deep sleep | slope | |
+| --- | ---: | --- |
+| driven low and held | 1.698 ± 0.043 mV/h | ~5.1 mA |
+| high-impedance | 1.080 ± 0.038 mV/h | ~3.2 mA |
+
+A 36% reduction, 10.8 sigma, about 1.9 mA — six lines through roughly 9 kΩ. Compare slopes only
+over the same voltage window: a LiPo's mV per mAh changes across the curve, and the same
+current reads as a shallower slope once the cell reaches its plateau.
+
+About 2 mA still remains against a ~100 µA ideal. That is the board's own quiescent draw on a
+rail that never turns off, and reaching it means hardware — a high-side P-MOSFET on its VCC
+rather than a GPIO, since the board pulls ~45 mA during a refresh.
 
 **Measure it with the on-flash log, never over USB.** The ADC divider sits on the battery
 terminal, so a terminal on a charger reads the charger: three samples eleven seconds apart once
-read 4229, 4147 and 4143 mV, and the low one was the only one taken with the cable out. An
+read 4229, 4147 and 4143 mV, and the low one was the only one taken with the cable out — an
 86 mV spread against 4.8 mV of ADC noise. Every wake appends `boot,rtc_ms,mv,wake,host` to
 `/vlog.csv`; plug in and shake to dump it, send `c` to clear.
 
-Read it by fitting a slope through the `host=0` rows, ordered by `rtc_ms`. Do not difference
-two endpoints — a single reading carries about 4.8 mV of noise, while a day of hourly points
-resolves the drain to roughly ±0.15 mA. Order by `rtc_ms`, not `bootCount`: a reflash resets
-the boot counter while the RTC clock keeps running, so grouping by boot splices unrelated
-stretches together.
-
-**Every panel pin is held low through deep sleep.** Cutting the gate is not enough by itself:
-a GPIO stops being driven the moment the chip sleeps unless explicitly held, so the six data
-and control lines float — and a floating pin at the driver board's input forward-biases its ESD
-diodes and feeds the board's rail through that input, powering the panel through the back door
-the gate was closed to prevent. The hold is correct and stays, though the measurements that
-originally motivated it (20 mV against 140 mV over 18-hour runs) were taken by plugging in and
-shaking, and are not trustworthy at that scale.
+Fit a slope through the `host=0` rows ordered by `rtc_ms`. Do not difference two endpoints — a
+single reading carries ~4.8 mV of noise, while a day of hourly points resolves the drain to
+about ±0.15 mA. Order by `rtc_ms`, not `bootCount`: a reflash resets the boot counter while the
+RTC clock keeps running, so grouping by boot splices unrelated stretches together.
 
 The 40 µA sleep line was never verified, and it assumes the RTC peripheral domain is off, which
-it is not — `ext0` runs there, so powering it down silently disables shake-to-wake. Given the
-measured 5 mA, that line is wrong by more than two orders of magnitude and a meter on the rail
-is the only thing that will say why.
+it is not — `ext0` runs there, so powering it down silently disables shake-to-wake.
 
 ## Protocol
 
