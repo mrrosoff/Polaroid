@@ -2,19 +2,26 @@
 
 #include <Arduino.h>
 
+#include <esp_private/esp_clk.h>
+
 #include <cstdarg>
+#include <cstdint>
 #include <cstdio>
 
 namespace polaroid {
 
 /*
- * POWER: the `!Serial` check is the whole guard, and it is enough. On battery
- * there is no USB host, so HWCDC never reports connected and this returns
- * before touching the port -- an unguarded CDC write blocks until its timeout
- * on every wake. Plugged into a host it logs, which is the only way to see
- * anything on a device with no screen worth reading and no other output.
+ * POWER: the `!Serial` guard is the whole point. On battery no host answers, so
+ * this returns before touching the port -- an unguarded CDC write blocks until
+ * its timeout on every wake.
+ *
+ * Uptime counts through deep sleep and places a wake among the others;
+ * seconds-since-boot restart each wake and show how long a step took. Neither
+ * is wall-clock: nothing here knows the date.
+ *
+ * The tag is a fixed-width column so a capture scans down it.
  */
-inline void logf(const char* format, ...) {
+inline void logf(const char* tag, const char* format, ...) {
     if (!Serial) {
         return;
     }
@@ -23,7 +30,10 @@ inline void logf(const char* format, ...) {
     char line[160];
     vsnprintf(line, sizeof(line), format, args);
     va_end(args);
-    Serial.println(line);
+
+    const std::uint64_t up = esp_clk_rtc_time() / 1000000ULL;
+    Serial.printf("[%3luh%02lum %6.2fs] %-7s | %s\n", static_cast<unsigned long>(up / 3600),
+                  static_cast<unsigned long>((up % 3600) / 60), millis() / 1000.0f, tag, line);
 }
 
 }  // namespace polaroid

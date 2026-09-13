@@ -159,7 +159,7 @@ bool Net::downloadPhoto(Storage& storage, const PhotoEntry& photo) {
 
     File file = storage.fs().open(tempPath, FILE_WRITE);
     if (!file) {
-        logf("  cannot open %s for write - filesystem not usable", tempPath);
+        logf("net", "cannot open %s for write - filesystem not usable", tempPath);
         return false;
     }
 
@@ -174,7 +174,7 @@ bool Net::downloadPhoto(Storage& storage, const PhotoEntry& photo) {
      * two seconds of CPU at ~40 mA.
      */
     if (!beginRequest(http, client, String(API_BASE_URL) + "/photo")) {
-        logf("  beginRequest failed");
+        logf("net", "beginRequest failed");
     } else {
         http.addHeader("Content-Type", "application/json");
         /*
@@ -189,9 +189,9 @@ bool Net::downloadPhoto(Storage& storage, const PhotoEntry& photo) {
         const int status = http.POST(requestBody);
         if (status == HTTP_CODE_OK) {
             const int written = http.writeToStream(&file);
-            logf("  HTTP 200, content-length %d, wrote %d", http.getSize(), written);
+            logf("net", "HTTP 200, content-length %d, wrote %d", http.getSize(), written);
         } else {
-            logf("  HTTP %d: %s", status, http.errorToString(status).c_str());
+            logf("net", "HTTP %d: %s", status, http.errorToString(status).c_str());
         }
         http.end();
     }
@@ -210,7 +210,7 @@ bool Net::downloadPhoto(Storage& storage, const PhotoEntry& photo) {
 
     const bool complete = bytes == PANEL_BYTES;
     if (!complete) {
-        logf("  short file: %u bytes, expected %u", static_cast<unsigned>(bytes),
+        logf("net", "short file: %u bytes, expected %u", static_cast<unsigned>(bytes),
              static_cast<unsigned>(PANEL_BYTES));
     }
 
@@ -235,7 +235,7 @@ SyncResult Net::sync(Storage& storage) {
     }
 
     const ManifestDiff diff = diffManifests(local, remote);
-    logf("  remote %u photos, local %u, %u to fetch, %u to drop", remote.size(), local.size(),
+    logf("sync", "remote %u, local %u, %u to fetch, %u to drop", remote.size(), local.size(),
          static_cast<unsigned>(diff.fetch.size()), static_cast<unsigned>(diff.remove.size()));
 
     /*
@@ -284,7 +284,7 @@ SyncResult Net::sync(Storage& storage) {
             committed.photos.push_back(photo);
             result.fetched++;
         } else {
-            logf("  download failed for %s", photo.id.data());
+            logf("net", "download failed for %s", photo.id.data());
         }
     }
 
@@ -293,7 +293,7 @@ SyncResult Net::sync(Storage& storage) {
     // Only now that the manifest is written and matches what is on disk.
     const std::uint16_t orphans = storage.removeOrphans(committed);
     if (orphans > 0) {
-        logf("  swept %u orphaned framebuffers", orphans);
+        logf("fs", "swept %u orphaned framebuffer%s", orphans, orphans == 1 ? "" : "s");
     }
 
     result.ok = true;

@@ -86,6 +86,7 @@ void renderCurrentPhoto() {
         if (!panel.begin()) {
             return;
         }
+        logf("panel", "painting %s", want == PANEL_BLANK ? "blank paper" : "the no-photos card");
         const bool drawn = want == PANEL_BLANK ? panel.displaySolid(config::INK_WHITE)
                                                : panel.displayGenerated(card::noPhotosCardRow);
         if (drawn) {
@@ -107,8 +108,13 @@ void renderCurrentPhoto() {
      */
     const std::uint32_t key = panelKey(manifest.photos[state.photoIndex], showOfflineIcon);
     if (state.panelShows == PANEL_PHOTO && state.panelPhotoKey == key) {
+        logf("panel", "photo %u of %u already shown, not repainting",
+             static_cast<unsigned>(state.photoIndex + 1),
+             static_cast<unsigned>(manifest.photos.size()));
         return;
     }
+    logf("panel", "painting photo %u of %u%s", static_cast<unsigned>(state.photoIndex + 1),
+         static_cast<unsigned>(manifest.photos.size()), showOfflineIcon ? " (offline)" : "");
 
     std::array<char, 48> path{};
     storage.photoPath(manifest.photos[state.photoIndex].idView(), path);
@@ -188,7 +194,7 @@ SyncResult runSync() {
     RtcState& state = rtcState();
 
     if (!result.ok) {
-        logf("sync failed (%u in a row)", state.syncFailures + 1);
+        logf("sync", "failed (%u in a row)", state.syncFailures + 1);
         /*
          * POWER: count the failure and back off. Retrying hourly through a
          * router outage costs 24 connect timeouts a day, which is more than the
@@ -205,7 +211,7 @@ SyncResult runSync() {
 
     state.syncFailures = 0;
     showOfflineIcon = false;
-    logf("sync ok: %u fetched, %u removed", result.fetched, result.removed);
+    logf("sync", "ok: %u fetched, %u removed", result.fetched, result.removed);
 
     storage.loadManifest(manifest);
     state.photoCount = manifest.size();
@@ -225,6 +231,24 @@ enum : std::uint8_t {
     EXIT_MOTION_TOO_SOON = 4,
 };
 
+const char* exitName(std::uint8_t code) {
+    switch (code) {
+        case EXIT_NORMAL: return "normal";
+        case EXIT_NO_FILESYSTEM: return "no-filesystem";
+        case EXIT_CRITICAL_BATTERY: return "critical-battery";
+        case EXIT_MOTION_TOO_SOON: return "motion-debounced";
+        default: return "none";  // zeroed state: no previous wake
+    }
+}
+
+const char* wakeName(WakeReason reason) {
+    switch (reason) {
+        case WakeReason::Motion: return "shake";
+        case WakeReason::Timer: return "timer";
+        default: return "cold-boot";
+    }
+}
+
 [[noreturn]] void powerDownAndSleep(uint32_t seconds) {
     /*
      * The battery is read at the top of setup() and logged there too, but that
@@ -236,12 +260,9 @@ enum : std::uint8_t {
      * POWER: costs nothing on battery. logf returns before touching the port
      * when no host is connected, which on a frame on a fridge is always.
      */
-    logf("sleeping %lus | battery %.2f V, %u%% | wake=%s exit=%u",
-         static_cast<unsigned long>(seconds), battery.volts, battery.percent,
-         wakeReason() == WakeReason::Motion  ? "motion"
-         : wakeReason() == WakeReason::Timer ? "timer"
-                                             : "cold",
-         rtcState().lastExit);
+    logf("sleep", "%lus, after %s wake, battery %.2f V %u%%, exit %s",
+         static_cast<unsigned long>(seconds), wakeName(wakeReason()), battery.volts,
+         battery.percent, exitName(rtcState().lastExit));
 
     /*
      * Every exit from setup() comes through here, so this is the one place a
@@ -262,14 +283,22 @@ enum : std::uint8_t {
      * log, to start a fresh measurement run.
      */
     if (host) {
-        vlog::dump();
-        const std::uint32_t until = millis() + 1500;
+        vlog::summary();
+        const std::uint32_t until = millis() + 3000;
         while (millis() < until) {
-            if (Serial.available() && Serial.read() == 'c') {
+            if (!Serial.available()) {
+                delay(10);
+                continue;
+            }
+            const int key = Serial.read();
+            if (key == 'd') {
+                vlog::dump();
+                break;
+            }
+            if (key == 'c') {
                 vlog::clear();
                 break;
             }
-            delay(10);
         }
     }
 
@@ -302,11 +331,8 @@ void setup() {
     state.bootCount++;
 
     WakeReason reason = wakeReason();
-    logf("prev exit=%u", state.lastExit);
-    logf("boot %lu, wake=%s", static_cast<unsigned long>(state.bootCount),
-         reason == WakeReason::Motion  ? "motion"
-         : reason == WakeReason::Timer ? "timer"
-                                       : "cold");
+    logf("boot", "%lu, %s wake, previous exit %s", static_cast<unsigned long>(state.bootCount),
+         wakeName(reason), exitName(state.lastExit));
     if (reason == WakeReason::Timer) {
         state.secondsSinceSync += REFRESH_INTERVAL_SECONDS;
     }
@@ -327,7 +353,7 @@ void setup() {
     }
 
     if (!storage.begin()) {
-        logf("FATAL: no filesystem; sleeping");
+        logf("fs", "FATAL: will not mount; sleeping");
         state.lastExit = EXIT_NO_FILESYSTEM;
         /*
          * Nothing to render and nothing to fix at runtime. Sleep rather than
@@ -341,7 +367,7 @@ void setup() {
     }
     storage.loadManifest(manifest);
     state.photoCount = manifest.size();
-    logf("filesystem mounted, %u photos on flash", state.photoCount);
+    logf("fs", "mounted, %u photo%s on flash", state.photoCount, state.photoCount == 1 ? "" : "s");
 
     /*
      * Read before anything draws. The rail sags under a 45 mA refresh, so a
@@ -349,7 +375,7 @@ void setup() {
      * it is and would trip the critical threshold early.
      */
     battery = readBattery();
-    logf("battery %.2f V, %u%%%s", battery.volts, battery.percent,
+    logf("battery", "%.2f V, %u%%%s", battery.volts, battery.percent,
          battery.critical ? " CRITICAL" : "");
 
     /*
@@ -396,7 +422,7 @@ void setup() {
     }
 
     const bool syncing = shouldSync(reason);
-    logf("%s", syncing ? "syncing" : "advancing");
+    logf("sync", "%s", syncing ? "starting" : "not due; advancing the photo");
 
     /*
      * Index 0 is the newest photo, so "back to zero" and "show what just

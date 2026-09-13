@@ -19,7 +19,7 @@ bool Storage::begin() {
      * board. Format once, explicitly, and try again.
      */
     if (!mounted_) {
-        logf("filesystem will not mount; formatting");
+        logf("fs", "will not mount; formatting");
         if (LittleFS.format()) {
             mounted_ = LittleFS.begin(false, "/littlefs", 10, "littlefs");
         }

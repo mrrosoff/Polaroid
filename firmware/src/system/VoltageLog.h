@@ -6,46 +6,30 @@
 #include <cstdint>
 
 #include "Config.h"
+#include "system/Log.h"
 
 namespace polaroid::vlog {
 
 /*
- * One battery sample per wake, written to flash instead of read over USB.
+ * One battery sample per wake, written to flash because reading the cell over
+ * USB measures the charger: three samples eleven seconds apart once read 4229,
+ * 4147 and 4143 mV, and the low one was the only one taken with the cable out.
+ * `host` marks the contaminated ones.
  *
- * Reading the cell over the cable measures the charger. The ADC divider sits
- * on the battery terminal, and a terminal on a charger reads whatever the
- * charger holds it at: on 2026-08-31 three samples eleven seconds apart read
- * 4229, 4147 and 4143 mV, and the low one was the only sample taken with the
- * cable out. That 86 mV spread is roughly eighteen times the ADC's own noise,
- * which is why a week of plug-in-and-shake readings could not measure a
- * discharge.
- *
- * So the sample is taken on battery and read back later. `host` marks the ones
- * taken with USB attached; they are contaminated upward and should be dropped
- * rather than trusted.
- *
- * Fit a slope through the host=0 rows rather than differencing two endpoints.
- * Single readings carry about 4.8 mV of ADC noise, but a day of hourly points
- * resolves the drain to roughly +/-0.5 mA -- enough to tell a 0.44 mA budget
- * from the milliamps actually being drawn, and enough to date the onset of
- * anything episodic, which two endpoints can never do.
+ * Fit a slope through the host=0 rows rather than differencing two endpoints --
+ * one reading carries ~4.8 mV of noise, a day of them resolves ~0.15 mA -- and
+ * compare slopes only within the same voltage band, since a LiPo's mV per mAh
+ * changes across the curve.
  */
 
 /*
- * POWER: one small append per wake. A page program is a few milliseconds at
- * roughly 20 mA, so about 0.03 mAh/day against a 10.5 mAh/day budget -- under
- * a third of a percent, and far below the resolution of what it measures.
+ * POWER: one page program per wake, about 0.03 mAh/day against 10.5.
  */
 inline void append(std::uint32_t bootCount, std::uint64_t rtcMs, std::uint16_t millivolts,
                    char wake, bool hostAttached) {
     /*
-     * Rotate rather than grow. The photo cap is 50 of the 53 that fit because
-     * a download stages a full framebuffer before renaming over the old one,
-     * and that staging space is the headroom an unbounded log would eat:
-     * 50 photos leave 422,528 B, and two full logs take 131,072 of it, which
-     * still clears the 120,000 a download needs. A log that quietly broke
-     * photo replacement after a year would be indistinguishable from the frame
-     * being full.
+     * Rotate rather than grow. 50 photos leave 422,528 B and a download stages
+     * 120,000 of it, so an unbounded log would break replacement eventually.
      */
     File probe = LittleFS.open(config::VLOG_PATH, FILE_READ);
     const bool full = probe && probe.size() >= config::VLOG_MAX_BYTES;
@@ -59,7 +43,7 @@ inline void append(std::uint32_t bootCount, std::uint64_t rtcMs, std::uint16_t m
 
     File f = LittleFS.open(config::VLOG_PATH, FILE_APPEND);
     if (!f) {
-        Serial.println("vlog: append open failed");
+        logf("log", "append failed");
         return;
     }
     char line[64];
@@ -72,12 +56,54 @@ inline void append(std::uint32_t bootCount, std::uint64_t rtcMs, std::uint16_t m
     f.close();
 }
 
+/*
+ * Endpoints only. A full dump at the cap is six seconds of scrolling every time
+ * the cable goes in, burying the lines around it.
+ */
+inline void summary() {
+    std::uint32_t rows = 0;
+    std::uint64_t firstMs = 0, lastMs = 0;
+    std::uint32_t firstMv = 0, lastMv = 0;
+
+    for (const char* path : {config::VLOG_PREV_PATH, config::VLOG_PATH}) {
+        File f = LittleFS.open(path, FILE_READ);
+        if (!f) {
+            continue;
+        }
+        char line[64];
+        while (f.available()) {
+            const std::size_t n = f.readBytesUntil('\n', line, sizeof(line) - 1);
+            line[n] = '\0';
+            unsigned long boot = 0, ms = 0;
+            unsigned mv = 0;
+            if (sscanf(line, "%lu,%lu,%u,", &boot, &ms, &mv) != 3) {
+                continue;
+            }
+            if (rows == 0) {
+                firstMs = ms;
+                firstMv = mv;
+            }
+            lastMs = ms;
+            lastMv = mv;
+            rows++;
+        }
+        f.close();
+    }
+
+    if (rows == 0) {
+        logf("log", "empty");
+        return;
+    }
+    logf("log", "%lu rows, %u -> %u mV over %.1f h  (d = dump, c = clear)",
+         static_cast<unsigned long>(rows), firstMv, lastMv,
+         static_cast<double>(lastMs - firstMs) / 3600000.0);
+}
+
 inline void dumpOne(const char* path) {
     File f = LittleFS.open(path, FILE_READ);
     if (!f) {
         return;
     }
-    Serial.printf("vlog %s: %u bytes\n", path, static_cast<unsigned>(f.size()));
     std::uint8_t buf[256];
     while (f.available()) {
         Serial.write(buf, f.read(buf, sizeof(buf)));
@@ -86,31 +112,21 @@ inline void dumpOne(const char* path) {
 }
 
 /*
- * rtcMs counts through deep sleep but restarts at zero when the cell is
- * disconnected or the board is power-cycled, and bootCount restarts with it.
- * So a run is a block of rows sharing a boot sequence, and rtcMs is time since
- * that run began. Oldest file first, so the two read as one series.
+ * Order by rtcMs, not boot: a reflash resets the counter while the RTC clock
+ * keeps running. Oldest file first, so the two read as one series.
  */
 inline void dump() {
-    /*
-     * Filesystem state before the rows. A dump with no rows is ambiguous
-     * otherwise -- an unmounted filesystem, a missing file and an empty one all
-     * print the same nothing.
-     */
-    Serial.printf(
-        "vlog: fs %u/%u used, csv=%d prev=%d\n", static_cast<unsigned>(LittleFS.usedBytes()),
-        static_cast<unsigned>(LittleFS.totalBytes()), LittleFS.exists(config::VLOG_PATH) ? 1 : 0,
-        LittleFS.exists(config::VLOG_PREV_PATH) ? 1 : 0);
-    Serial.println("vlog: boot,rtc_ms,mv,wake,host");
+    logf("log", "dump begin");
+    Serial.println("boot,rtc_ms,mv,wake,host");
     dumpOne(config::VLOG_PREV_PATH);
     dumpOne(config::VLOG_PATH);
-    Serial.println("vlog: end");
+    logf("log", "dump end");
 }
 
 inline void clear() {
     LittleFS.remove(config::VLOG_PREV_PATH);
     LittleFS.remove(config::VLOG_PATH);
-    Serial.println("vlog: cleared");
+    logf("log", "cleared");
 }
 
 }  // namespace polaroid::vlog
