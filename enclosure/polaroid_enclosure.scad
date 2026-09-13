@@ -1,8 +1,7 @@
 // Polaroid enclosure — 2-part (front bezel + rear tray), screwed together.
 //
-// PORTRAIT LAYOUT: the panel is natively 400x600 portrait, so unlike Forager
-// there's no rotation to reason about. Case-X is width, case-Y is height, and
-// case-Y runs along the panel's long 101mm edge.
+// The panel is natively 400x600 portrait, so case-X is width and case-Y is
+// height, running along the panel's long 101mm edge.
 //
 // Hardware (vendor spec, waveshare.com/wiki/4inch_e-Paper_HAT+_(E)_Manual):
 //   - Driver board (HAT+):  101.0 x 68.0mm      <- sets the case footprint
@@ -13,28 +12,14 @@
 //   - Accelerometer: Adafruit LIS3DH breakout, 25 x 19mm
 //   - Magnet: one 29mm dia x 3mm neodymium disc, adhesive-backed
 //
-// NOTHING IS DRAWN ON THE PANEL AND NOTHING HIDES BEHIND IT.
-//
-// The photo runs full-bleed across all 400x600, and there is no chin. There
-// was one, 10mm of it, on the theory that the parts had run out of floor under
-// a board that spans the whole pocket. Laid out against the real footprints
-// they had not: the battery sits along the top wall, the MCU and accelerometer
-// along the bottom, and 30mm of floor between them was doing nothing. A chin
-// kept for looks would have been the wrong call — it would have to hide a
-// quarter of a $45 panel to earn its aspect ratio.
-//
-// SIZE: 71.6 x 118.8 x 22.7mm, against a board that is 68 x 101. That is
-// 1.5mm of bezel either side of the board — the wall, and nothing else — and
-// 8.1mm either side of the visible image. Above and below the board it is
-// 7.35mm of rim, which is the screw and nothing else. See the screw note below
-// for how the side margin got down there.
+// The photo runs full-bleed across all 400x600 and nothing hides behind the
+// bezel: a chin kept for looks would have to cover a quarter of a $45 panel.
 //
 // PRINT IT IN A DARK COLOUR. E-ink white is bone (~78% reflectance); a white
-// bezel around it reads as one big dingy slab and the Polaroid shape vanishes.
-// Dark grey, black or a wood-fill makes the white print pop.
+// bezel reads as one dingy slab and the Polaroid shape vanishes.
 //
-// SCREWS, NOT CLIPS: this is the one enclosure in the house that gets
-// deliberately shaken. Snap-fit would work loose.
+// Screws rather than clips: this is the one enclosure in the house that gets
+// deliberately shaken, and snap-fit works loose.
 //
 // Render one part at a time:
 //   openscad -D part=\"bezel\" -o stl/front_bezel.stl polaroid_enclosure.scad
@@ -46,57 +31,38 @@ $fn = 64;
 // ---- General ----
 wall      = 1.5;   // perimeter wall thickness
 clearance = 0.3;   // general fit clearance around boards
-// Rounded exterior corners — a real Polaroid's are nearly square. 2.8 rather
-// than 3.0 because the corner and the screw head compete for the same end of
-// the case: the head has to seat on flat wall outboard of the radius, so every
-// 0.1 of radius is 0.1 further in the screw sits, and 0.1 more rim behind it.
+// The corner and the screw head compete for the same end of the case: the head
+// must seat on flat wall outboard of the radius, so every 0.1 of radius pushes
+// the screw 0.1 further in and costs 0.1 more rim behind it.
 corner_r  = 2.8;
 
 // ---- Side-entry screws ----
-// Sized generously after the Forager print, where the screws did not bite.
-// Three things were wrong there and all three are fixed here:
+// SCREWS LIVE IN THE TOP AND BOTTOM RIMS, NOT THE SIDE MARGINS. A flange in a
+// side margin forces that margin to flange_inset + flange_w + clearance, so
+// every millimetre of thread engagement costs a millimetre of bezel on both
+// sides. At a Y above or below the board there is nothing to collide with, so
+// the side margin drops to a bare wall and the flange can be as deep as the
+// joint needs.
 //
-//   1. flange_w is the entire thread engagement, and 3.2mm is about two
-//      threads of an M2 self-tapper. 4.0mm is three or four, which is what
-//      the joint needs. It was 6.0 because nothing charged for it, and 6mm
-//      of solid flange hung into the cavity for no reason.
-//   2. side_boss_od was 4.5mm around a 2.0mm pilot, leaving a 1.25mm wall
-//      that splits when the screw taps itself in. This file went to 7.0mm
-//      and has since come back down — see the note on side_boss_od below.
-//   3. Nothing checked that the flange still existed at the height the screw
-//      arrives at. The assertions below do; one of them caught a 2.5mm
-//      overhang while this file was being written.
-//
-// SCREWS LIVE IN THE TOP AND BOTTOM RIMS, NOT THE SIDE MARGINS.
-//
-// This is what lets the flanges get longer and the side bezels get thinner at
-// the same time, which otherwise trade directly against each other: a flange
-// sitting in the side margin forces that margin to be flange_inset + flange_w
-// + a board clearance wide, so every millimetre of thread engagement cost a
-// millimetre of bezel on both sides. Putting the screws at Y positions above
-// and below the board means the flange can reach as far inboard as it likes —
-// there is no board at that Y to collide with. Side margin drops from 10.0mm
-// to a bare wall, and the flange is free to be whatever the joint needs.
-//
-// 4.5 around a 2.0mm pilot is a 1.25mm wall, which is exactly the section
-// that split on the Forager print. It is back because the boss diameter is
-// the rim's whole cost — every millimetre off it is half a millimetre off the
-// top and bottom bezel — and because this flange is 12mm deep and butts
-// against a screw pad, where Forager's was a stub in open air. If a flange
-// splits on first assembly, this is the number that did it.
+// 4.5 around a 2.0mm pilot leaves a 1.25mm wall, the section that split on the
+// Forager print. It is back because the boss diameter is the rim's whole cost,
+// and because this flange is 12mm deep into a screw pad rather than a stub in
+// open air. If a flange splits on first assembly, this is the number that did
+// it.
 side_boss_od      = 4.5;
 side_pilot_d      = 2.0;   // M2 self-tapping into plastic
 side_clear_d      = 2.9;   // shaft passes freely through the tray wall
-// Flat-top heads, sunk flush in a counterbore on the outside of the tray.
-// A 1.6mm head into a 1.5mm wall would leave nothing for it to pull against,
-// so the wall is thickened locally instead: a pad on the INSIDE at each screw,
-// which the bezel's flange then butts against rather than the wall. Local
-// thickness is wall + screw_pad_t = 3.0, so a flush head still bears on 1.4mm.
+// Flat-top heads sink flush in a counterbore outside the tray. A 1.6mm head
+// into a 1.5mm wall leaves nothing to pull against, so the wall is thickened
+// locally with a pad on the INSIDE that the bezel's flange butts against.
 head_clear_d      = 4.2;   // 3.8mm M2 pan/cheese head plus fit
 head_recess_t     = 1.6;   // full head height — the head disappears
 screw_pad_t       = 1.5;
 flange_w          = 4.0;   // thread engagement depth
-side_flange_depth = 12.0;  // how far the flange reaches into the tray cavity
+// How far the flange reaches into the tray cavity. It has to stop above the
+// battery bay's retaining wall, which it overlaps in plan: 12.0 was fine under
+// a 19mm cavity and drove the flange straight through the bay at 12.5.
+side_flange_depth = 8.0;
 // Clear of the screw pad's inner face, not of the wall's.
 flange_inset      = wall + screw_pad_t + clearance;   // 3.3
 
@@ -107,8 +73,8 @@ assert(head_recess_t <= wall + screw_pad_t - 1.2,
 // The BOARD, not the glass, sets the footprint: it's 2mm bigger in both axes.
 board_w = 68.0;
 board_h = 101.0;
-// Measured with calipers on the real board, headers removed. Was assumed at
-// 6.0, which would have left the case 1mm short of closing.
+// Measured with calipers, headers removed — but see measured_stack_t, which
+// says this reads about 5mm high. Re-measure before trusting it.
 board_t = 7.0;
 
 glass_w = 66.0;
@@ -118,13 +84,10 @@ glass_t = 0.85;    // the glass is genuinely this thin. Handle it accordingly.
 active_w = 56.40;
 active_h = 84.60;
 
-// ASSUMPTION: the active area is centred on the glass, and the glass centred
-// on the board. Vendor drawings don't give the offsets. If your panel sits
-// off-centre, shift it with active_offset_* rather than moving the pocket.
-// Measured against the printed bezel: the board sits where it should, the
-// window does not. The first correction went the wrong way — positive moves
-// the window up and up was the direction it needed — so this is that -1.8
-// backed out plus the 1.7 the second print still measured short.
+// ASSUMPTION: the active area is centred on the glass and the glass on the
+// board. Vendor drawings give no offsets. Shift with active_offset_* rather
+// than moving the pocket. Positive Y moves the window up; the value below is
+// what the second printed bezel measured short.
 active_offset_x = 0;
 active_offset_y = 1.7;
 
@@ -158,19 +121,10 @@ accel_l = 19.0;
 accel_h = 3.0;
 
 // ---- Magnet ----
-// One 29mm disc, dead centre. A single 29mm N35 holds far more than this
-// ~150g object needs, so the count is a geometry decision, not a strength one.
-//
-// Centred is the only sane place for a single magnet: anywhere else and the
-// case hangs off-axis, rotating until its centre of mass swings under the
-// magnet. Dead centre, gravity has no lever arm and the frame hangs square.
-//
-// The pocket exists so the magnet sits below the back face rather than
-// standing 3mm proud — without it the case pivots on a single bump and never
-// sits flat against the door. The first cut left it 0.2mm proud on purpose,
-// to put the magnet face against the steel; printed, that 0.2mm is what the
-// case rocks on, so the pocket now swallows the magnet with 0.8mm to spare
-// and the hold comes through a thin skin instead.
+// Dead centre is the only sane place for a single disc: anywhere else and the
+// case rotates until its centre of mass swings under the magnet. The pocket
+// exists so the magnet sits below the back face — standing proud, it is the
+// one bump the case rocks on and it never sits flat against the door.
 magnet_d = 29.0;
 magnet_t = 3.0;
 magnet_pocket_d = magnet_d + 0.6;
@@ -178,13 +132,10 @@ magnet_pocket_depth = magnet_t + 0.8;
 magnet_back_t = 1.2;    // material left behind the magnet. 0.8 was thin
                         // enough to feel like a membrane; this still holds
 
-// The floor used to be thick enough to swallow the pocket everywhere — 5.6mm
-// of it, across the entire back, so that a 3mm disc in the middle intruded on
-// nothing. That is 4mm of case thickness bought for one circle. The floor is
-// the wall thickness now and the pocket lives in a boss standing proud of it
-// on the INSIDE, so the depth is paid for over 34mm of circle instead. What it
-// costs is that the floor is no longer flat: the boss is an obstacle, and the
-// component placements below are asserted clear of it.
+// The pocket lives in a boss standing proud of the floor on the INSIDE, so its
+// depth is paid for over 34mm of circle rather than by thickening the whole
+// back — worth 4mm of case. The cost is that the floor is not flat, and the
+// component placements below are asserted clear of the boss.
 tray_floor_t = wall;   // 1.5
 magnet_boss_h = 3.5;
 magnet_boss_d = magnet_pocket_d + 4.0;   // 2mm ring around the pocket
@@ -200,33 +151,25 @@ usbc_slot_h = 4.0;
 pocket_w = board_w + 2 * clearance;
 pocket_h = board_h + 2 * clearance + fpc_fold_gap;
 
-// Side margin is the wall and nothing else. The hair that used to sit inside
-// it existed only to give the locator brackets somewhere to stand; with the
-// side arms gone (see rib_arm) the pocket IS the tray's interior, and the
-// board is located in X by the wall itself, to its 0.3mm clearance — tighter
-// than the 1.0mm brackets managed.
+// The pocket IS the tray's interior, so the board is located in X by the wall
+// itself to its 0.3mm clearance — tighter than locator brackets managed.
 pocket_x_inset = wall;   // 1.5
 
 // Rims above and below the board, sized to just contain a screw boss clear of
 // the rounded corner. This is the one place the case is bigger than the board
 // needs, and it buys the thin side bezels.
-// Screw centre, in from the end of the case. The counterbore has to land on
-// flat wall, so the head is what sets this: any closer to the corner and it
-// seats on a sliver of the rounded corner instead of the flat. The 0.1 is not
-// decoration — at exact equality the assertion below fails on floating point.
+//
+// The head, not the shaft, sets the screw centre: the counterbore has to land
+// on flat wall. The 0.1 is not decoration — at exact equality the assertion
+// below fails on floating point.
 side_y_lo = corner_r + head_clear_d / 2 + 0.1;   // 5.0
-// The rim is exactly what it takes to hold that screw's boss clear of the
-// board, and nothing more. It used to run the other way — a rim with a
-// millimetre of slack in it, and the screw pushed as far toward the corner as
-// that allowed — which left the slack sitting in the rim at both ends of the
-// case. Deriving the rim from the screw instead of the screw from the rim is
-// worth 2mm of height, and neither version can put the boss over the board.
+// Derived from the screw rather than the screw from the rim, which is worth
+// 2mm of height and cannot put the boss over the board.
 rim = side_y_lo + side_boss_od / 2 + 0.1;  // 8.25
 
-// Extra height below the board pocket, added on the theory that the parts had
-// run out of floor. The placement assertions below are the test of that, and
-// they pass at zero. Kept as a knob because a part that grows is the reason
-// it would come back.
+// The placement assertions below are the test of whether the parts need extra
+// floor, and they pass at zero. Kept as a knob because a part that grows is
+// the reason it would come back.
 chin = 0;
 
 outer_w = pocket_w + 2 * pocket_x_inset;   // ~73.6
@@ -237,53 +180,42 @@ glass_pocket_w = glass_w + 2 * clearance;
 glass_pocket_h = glass_h + 2 * clearance;
 glass_pocket_d = 1.0;   // shallow recess that locates the 0.85mm glass
 
-// Locator brackets on the bezel's back face, so a device that gets shaken on
-// purpose doesn't rattle its panel loose.
-//
-// Four bars, at the ends of the board's top and bottom edges. They were Ls,
-// with a second arm down each side holding X — but the side arms could only
-// stand in the side margin, so every one of those millimetres cost two off
-// the case's width. Narrowing the pocket to the board plus its clearance
-// hands X to the tray wall and gets the width back; only Y still needs
-// holding, and only these bars hold it.
-//
+// Locator bars on the bezel's back face, so a device shaken on purpose does
+// not rattle its panel loose. Only Y needs holding — the tray wall takes X.
 // Bars at the ends rather than one rib per edge: the FPC leaves the middle of
 // the bottom edge and a continuous rib would pinch it.
 rib_t = 1.0;
 rib_arm = 15.0;
 rib_h = glass_t + board_t;
 
-// The bezel is a PLATE plus flanges and ribs — there is no deep pocket in it.
-// So the whole display stack (glass + board) lives in the tray's cavity, on
-// top of the battery layer. That is a SUM, not a max: the board spans the
-// entire footprint, so nothing can sit beside it.
+// The bezel is a plate, not a pocket, so the whole display stack lives in the
+// tray's cavity on top of the battery layer. MCU, accelerometer and battery
+// sit side by side in plan, hence the max; the board spans the full footprint
+// above them, hence the sum.
 component_h = max(batt_t + batt_puff_clearance, mcu_component_h, accel_h);
 
-// The cavity, floor excluded — 28.0mm of stack was the parts standing on the
-// curve their wires were bent into, and dressed flat against the floor they
-// pack down to this. The assertion is what keeps it honest: the parts list
-// still sets the floor, so a taller battery or a thicker board fails the
-// render rather than the print.
-tray_interior_depth = 19.0;
-tray_wall_h = tray_interior_depth + tray_floor_t;   // 24.6
+measured_stack_t = 12.0;   // second build, dressed flat. Was 19.0.
+tray_interior_depth = measured_stack_t + 0.5;
+tray_wall_h = tray_interior_depth + tray_floor_t;
 
-assert(tray_interior_depth >= glass_t + board_t + component_h,
-       "tray is shallower than the parts stacked in it — raise tray_interior_depth");
+// Against the measurement, not the parts list. The list sums to 16.85 and the
+// assembled stack calipers at 12.0, so a figure in it reads high — board_t at
+// 7.0 is the suspect, since 0.85 + 2.15 + 9.0 is exactly the 12.0 measured.
+// Re-measure the display board before trusting the list again.
+assert(tray_interior_depth >= measured_stack_t,
+       "tray is shallower than the measured stack — raise measured_stack_t");
 
 total_thickness = bezel_front_t + tray_wall_h;
 
-// Screw centres, one pair in each rim, as far toward the corners as the head
-// can sit on flat wall — the widest spread against a shake. side_y_lo is up
-// with the rim it defines; the two are one chain, and the assertions below
-// check it end to end. Defining them independently is what put the boss 2.5mm
-// over the board on the first cut of this file.
+// One pair in each rim, as far toward the corners as the head can sit on flat
+// wall — the widest spread against a shake. Defining side_y_lo and rim
+// independently is what put a boss 2.5mm over the board on the first cut.
 side_y_hi = outer_h - side_y_lo;
 side_ys = [side_y_lo, side_y_hi];
 
-// Screw height. The flange hangs from the bezel plate's back face down into
-// the tray, so both parts must measure to that shared mating plane or the
-// screw passes under the flange and grabs nothing — which is what "the screws
-// didn't fully work" looks like in practice.
+// Both parts measure to the shared mating plane, or the screw passes under the
+// flange and grabs nothing — which is what "the screws didn't fully work"
+// looks like in practice.
 side_boss_z_bezel = bezel_front_t + side_flange_depth / 2;
 side_boss_z_tray  = tray_wall_h - side_flange_depth / 2;
 
@@ -307,28 +239,20 @@ assert(side_y_hi - side_boss_od / 2 >= outer_h - rim,
        "top screw boss reaches into the display board");
 
 // ---- Component placement on the tray floor ----
-// Hoisted out of rear_tray() because the floor is no longer flat: the magnet
-// boss stands 3.5mm proud of it, dead centre, and every part in that layer has
-// to miss it. The assertions at the bottom of this block are what enforce it,
-// and they are the reason the chin could go to zero — they, not the header
-// comment, are the claim that the parts fit.
+// Hoisted out of rear_tray() because the floor is not flat: the magnet boss
+// stands 3.5mm proud dead centre and every part in this layer has to miss it.
+// The assertions below are the claim that the parts fit, not the header.
 mcu_x = (outer_w - mcu_w) / 2;   // centred, so USB-C lines up with the slot
 mcu_y = wall + 3;
 
-// Orientation matters more than position: mount the breakout so its X axis
-// lies in the plane of the fridge door, which is the axis both a shake and a
-// door swing act along, and the one the thresholds in
-// firmware/include/Config.h are tuned against.
-//
-// It used to sit 6mm clear of the MCU. 1mm now — the gap it was sitting in is
-// where the magnet boss came up.
+// Orientation matters more than position: the breakout's X axis must lie in
+// the plane of the fridge door, the axis both a shake and a door swing act
+// along, and the one firmware/include/Config.h is tuned against.
 accel_x = wall + 3;
 accel_y = mcu_y + mcu_l + 1.0;
 
-// Battery across the top wall, long edge along case-X, centred in width and
-// flush to the top interior wall. That clears the whole middle and lower half
-// of the floor for the MCU, the accelerometer and the harness, which otherwise
-// had to thread between the cell and a side wall.
+// Battery across the top wall, clearing the middle and lower floor for the MCU,
+// the accelerometer and the harness.
 batt_wall_margin = 0.5;
 batt_fit_clearance = 2.0;
 bay_x_outer = batt_w + 2 * batt_wall_margin + batt_fit_clearance;
@@ -373,15 +297,11 @@ module screw_pads_2d() {
     }
 }
 
-// Everything the bezel hangs into the cavity — flanges, locator brackets —
-// has to miss the tray. Cutting them against the tray's own profile is what
-// guarantees it, rather than four numbers that agree by hand until one moves.
-//
-// The first version had neither the cut nor the clearance, and the flanges'
-// square outboard corners sat 0.67mm inside the tray's rounded interior
-// corners, down all 12mm of flange. That holds the four corners proud, the
-// screws pull the ends down regardless, and the bezel bows along both long
-// sides. It looks exactly like a bezel printed a hair too long.
+// Everything the bezel hangs into the cavity is cut against the tray's own
+// profile, rather than four numbers that agree by hand until one moves.
+// Without it the flanges' square corners sat 0.67mm inside the tray's rounded
+// interior corners down all 12mm, holding the corners proud while the screws
+// pulled the ends down — which looks exactly like a bezel printed too long.
 module cavity_keepout_2d() {
     difference() {
         rounded_rect(outer_w, outer_h, corner_r);

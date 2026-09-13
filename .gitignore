@@ -16,3 +16,7 @@ Secrets.*.h
 # Python bytecode from tools/
 __pycache__/
 *.pyc
+
+# VS Code multi-root workspace, local layout
+Polaroid.code-workspace
+.vscode/
