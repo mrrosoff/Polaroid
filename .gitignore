@@ -17,6 +17,5 @@ Secrets.*.h
 __pycache__/
 *.pyc
 
-# VS Code multi-root workspace, local layout
-Polaroid.code-workspace
-.vscode/
+# Machine-specific: absolute toolchain paths, regenerated with compiledb
+.vscode/c_cpp_properties.json
