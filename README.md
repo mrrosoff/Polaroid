@@ -37,9 +37,8 @@ render, so the panel never goes blank because the network was unhappy.
 ## Build and flash
 
 ```bash
-cd firmware
 pio run -t upload    # the shipping firmware
-pio test -e native   # 45 tests, no hardware needed
+pio test -e native   # 39 tests, no hardware needed
 ```
 
 There is one firmware environment. `logf()` writes to USB serial when a host is attached and
@@ -48,7 +47,7 @@ returns immediately when one is not, so bench and battery runs are the same bina
 Deep sleep drops USB, so a sleeping board can only be reflashed by holding BOOT through a reset, or
 by catching the few seconds it is awake.
 
-Copy `firmware/include/Secrets.h.example` to `Secrets.h` (gitignored) for the device credential and
+Copy `include/Secrets.h.example` to `Secrets.h` (gitignored) for the device credential and
 WiFi networks. The strongest listed network in range wins, so both homes can be listed.
 
 ## Hardware

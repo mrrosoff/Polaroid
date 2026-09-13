@@ -247,7 +247,7 @@ mcu_y = wall + 3;
 
 // Orientation matters more than position: the breakout's X axis must lie in
 // the plane of the fridge door, the axis both a shake and a door swing act
-// along, and the one firmware/include/Config.h is tuned against.
+// along, and the one include/Config.h is tuned against.
 accel_x = wall + 3;
 accel_y = mcu_y + mcu_l + 1.0;
 
