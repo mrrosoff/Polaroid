@@ -194,7 +194,7 @@ rib_h = glass_t + board_t;
 // above them, hence the sum.
 component_h = max(batt_t + batt_puff_clearance, mcu_component_h, accel_h);
 
-measured_stack_t = 12.0;   // second build, dressed flat. Was 19.0.
+measured_stack_t = 15.5;   // second build, dressed flat. Was 19.0.
 tray_interior_depth = measured_stack_t + 0.5;
 tray_wall_h = tray_interior_depth + tray_floor_t;
 
