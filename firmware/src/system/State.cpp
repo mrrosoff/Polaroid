@@ -79,21 +79,31 @@ WakeReason wakeReason() {
     /*
      * POWER: the board's VCC is on the 3V3 rail -- PIN_EPD_PWR drives a switch
      * on the board, not its supply -- so it is powered even while we sleep, and
-     * a pin held at 0 V against its input pull-up sinks current forever.
+     * a data pin held at 0 V against its input pull-up sinks current forever.
      * High-impedance costs nothing and is safe here only because the board has
      * its own supply; floating into an unpowered board would feed it through
      * its ESD diodes instead.
      *
-     * PIN_STATUS_LED is still driven: it is the XIAO's own LED, active low, and
-     * a floating pad lights it.
+     * PIN_EPD_PWR is the exception, because it is an enable rather than a
+     * signal: high turns the board's power circuit on, and an enable left
+     * floating sits wherever the board's own pull takes it. Driven low and
+     * held, so the circuit is off however the board pulls.
+     *
+     * PIN_STATUS_LED is likewise driven: it is the XIAO's own LED, active low,
+     * and a floating pad lights it.
      */
     for (int pin : EPD_PINS) {
         gpio_hold_dis(static_cast<gpio_num_t>(pin));
+        if (pin == PIN_EPD_PWR) {
+            continue;
+        }
         pinMode(pin, INPUT);
     }
-    pinMode(PIN_STATUS_LED, OUTPUT);
-    digitalWrite(PIN_STATUS_LED, HIGH);  // active low: high is off
-    gpio_hold_en(static_cast<gpio_num_t>(PIN_STATUS_LED));
+    for (int pin : {PIN_EPD_PWR, PIN_STATUS_LED}) {
+        pinMode(pin, OUTPUT);
+        digitalWrite(pin, pin == PIN_STATUS_LED ? HIGH : LOW);
+        gpio_hold_en(static_cast<gpio_num_t>(pin));
+    }
     gpio_deep_sleep_hold_en();
 
     /*
