@@ -15,6 +15,7 @@
 #include "Config.h"
 #include "Manifest.h"
 #include "Overlay.h"
+#include "Secrets.h"
 #include "StatusCard.h"
 #include "drivers/Battery.h"
 #include "drivers/Motion.h"
@@ -331,8 +332,15 @@ void setup() {
     state.bootCount++;
 
     WakeReason reason = wakeReason();
-    logf("boot", "%lu, %s wake, previous exit %s", static_cast<unsigned long>(state.bootCount),
-         wakeName(reason), exitName(state.lastExit));
+    /*
+     * The device id is here because a build carries exactly one, baked in from
+     * Secrets.h, and nothing else on the device says which. Flashing the wrong
+     * frame's build is otherwise silent: it authenticates, syncs someone else's
+     * photos, and looks entirely healthy.
+     */
+    logf("boot", "%lu, %s wake, device %s, previous exit %s",
+         static_cast<unsigned long>(state.bootCount), wakeName(reason), POLAROID_DEVICE_ID,
+         exitName(state.lastExit));
     if (reason == WakeReason::Timer) {
         state.secondsSinceSync += REFRESH_INTERVAL_SECONDS;
     }

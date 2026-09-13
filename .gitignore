@@ -8,6 +8,8 @@ firmware/data/manifest.json
 *.local
 .env
 secrets.h
+Secrets.h
+Secrets.*.h
 .scratch/
 .claude/
 
